@@ -1,0 +1,10 @@
+
+{
+	"name": "Python Dev",
+	
+    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.11-bullseye",
+
+	"features": {},
+
+	"postCreateCommand": "bash ./.devcontainer/init.sh"
+}
