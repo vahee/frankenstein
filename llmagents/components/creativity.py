@@ -38,7 +38,7 @@ class Creativity(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         return ActionResult(value=lm_response, success=True)
 
     async def on_tick(self) -> None:
-        ...
+        self._state.set_item("status", "Creativity is active.")
 
     def info(self) -> EntityInfo:
         return EntityInfo(

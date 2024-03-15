@@ -58,18 +58,18 @@ def create_env_and_agent() -> Tuple[IEnvironment, IAgent]:
     assert CONFIG.messenger_websocket_ping_interval is not None, "Messenger websocket ping interval is not set"
     assert CONFIG.messenger_websocket_ping_timeout is not None, "Messenger websocket ping timeout is not set"
 
-    environment_components.append(("Messenger", Messenger(WebsocketMessagingServer(
+    environment_components.append(Messenger(WebsocketMessagingServer(
         CONFIG.messenger_websocket_host,
         CONFIG.messenger_websocket_port,
         CONFIG.messenger_websocket_ping_interval,
         CONFIG.messenger_websocket_ping_timeout
-    ))))
+    )))
 
-    environment_components.append(("Todo List", TodoList()))
+    environment_components.append(TodoList())
 
     assert CONFIG.openai_api_key is not None
-    environment_components.append(("Creativity", Creativity(language_model=OpenAIChatModel(CONFIG.openai_api_key,
-                                                                                           CONFIG.agent.language_model.lstrip("openai:"), json=False))))
+    environment_components.append(Creativity(language_model=OpenAIChatModel(CONFIG.openai_api_key,
+                                                                            CONFIG.agent.language_model.lstrip("openai:"), json=False)))
 
     assert CONFIG.email_imap_address is not None, "Email IMAP address is not set"
     assert CONFIG.email_smtp_address is not None, "Email SMTP address is not set"
@@ -79,7 +79,7 @@ def create_env_and_agent() -> Tuple[IEnvironment, IAgent]:
     assert CONFIG.email_from is not None, "Email from is not set"
     assert CONFIG.outbound_emails_whitelist is not None, "Outbound emails whitelist is not set"
 
-    environment_components.append(("Email", Email(
+    environment_components.append(Email(
         imap_address=CONFIG.email_imap_address,
         smtp_address=CONFIG.email_smtp_address,
         smtp_port=CONFIG.email_smtp_port,
@@ -87,10 +87,10 @@ def create_env_and_agent() -> Tuple[IEnvironment, IAgent]:
         password=CONFIG.email_password,
         from_address=CONFIG.email_from,
         outbound_emails_whitelist=CONFIG.outbound_emails_whitelist,
-    )))
+    ))
 
-    environment_components.append(("Web Browser", WebBrowser(language_model=OpenAIChatModel(CONFIG.openai_api_key,
-                                                                                            CONFIG.agent.language_model.lstrip("openai:"), json=False), serper_api_key=CONFIG.serper_api_key)))
+    environment_components.append(WebBrowser(language_model=OpenAIChatModel(CONFIG.openai_api_key,
+                                                                            CONFIG.agent.language_model.lstrip("openai:"), json=False), serper_api_key=CONFIG.serper_api_key))
 
     agent_components.append(Memory(InMemoryVectorDB(
         embeddings_model.dim(), 'cosine'), embeddings_model, 10))

@@ -54,7 +54,7 @@ class TodoList(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
 
     async def on_tick(self) -> None:
         self._state.set_item(
-            "status", f"Number of new items in the todo list: {len(self._list)}")
+            "status", {"num_new": len(self._list)})
 
     def info(self) -> EntityInfo:
         return EntityInfo(

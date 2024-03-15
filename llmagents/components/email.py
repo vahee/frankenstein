@@ -118,7 +118,7 @@ class Email(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         # unseen_emails = len(
         #     list(self._mailbox.fetch(AND(seen=False), reverse=True, limit=10, headers_only=True, mark_seen=False)))
         new_emails = 0  # unseen_emails - self._num_unseen_emails
-        self._state.set_item("status", {"New emails": f"{new_emails}"})
+        self._state.set_item("status", {"num_new": new_emails})
         # await self._disconnect()
 
     def info(self) -> EntityInfo:

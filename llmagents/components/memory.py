@@ -67,7 +67,8 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
             latest_memories.append(memory_data)
 
             for i, mem in enumerate(latest_memories):
-                agent.state.set_item(f"agent/components/memory/{i}", mem)
+                agent.state.set_item(
+                    f"agent/components/{self.info().name}/{i}", mem)
 
         agent.state.remove_item(SharedStateKeys.AGENT_ACTION)
         agent.state.remove_item(SharedStateKeys.AGENT_ACTION_ARGS)
