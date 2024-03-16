@@ -5,7 +5,7 @@ import openai
 import tiktoken
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
-from llmagents.language.protocols import ILanguageModel
+from frankenstein.lib.language.protocols import ILanguageModel
 
 logger = logging.getLogger('language_model')
 

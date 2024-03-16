@@ -5,7 +5,7 @@ from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
 from agentopy import ActionResult, WithStateMixin, WithActionSpaceMixin, Action, IEnvironmentComponent, EntityInfo
 import json
-from llmagents.language.protocols import ILanguageModel
+from frankenstein.lib.language.protocols import ILanguageModel
 
 
 class WebBrowser(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):

@@ -4,8 +4,8 @@ import numpy as np
 
 from agentopy import WithActionSpaceMixin, ActionResult, SharedStateKeys, IAgent, IAgentComponent, WithStateMixin, EntityInfo
 
-from llmagents.language.protocols import IEmbeddingModel
-from llmagents.db.protocols import IVectorDB
+from frankenstein.lib.language.protocols import IEmbeddingModel
+from frankenstein.lib.db.protocols import IVectorDB
 
 
 class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):

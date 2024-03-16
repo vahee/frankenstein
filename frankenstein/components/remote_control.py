@@ -4,7 +4,7 @@ import logging
 
 from agentopy import WithStateMixin, WithActionSpaceMixin, IAgentComponent, IAgent, IAction, IState, EntityInfo
 
-from llmagents.lib.communication import IMessaging
+from frankenstein.lib.networking.communication import IMessaging
 
 logger = logging.getLogger('[Component][RemoteControl]')
 

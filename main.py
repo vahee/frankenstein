@@ -7,21 +7,21 @@ from agentopy import Agent, Environment, IAgent, IEnvironment
 
 from config import CONFIG
 
-from llmagents.language.openai_language_models import OpenAIChatModel
-from llmagents.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
-from llmagents.language.llm_policy import LLMPolicy
-from llmagents.db.in_memory_vector_db import InMemoryVectorDB
-from llmagents.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
-from llmagents.lib.communication import WebsocketMessagingServer
+from frankenstein.lib.language.openai_language_models import OpenAIChatModel
+from frankenstein.lib.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
+from frankenstein.policies.llm_policy import LLMPolicy
+from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
+from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
+from frankenstein.lib.networking.communication import WebsocketMessagingServer
 
 
-logging.basicConfig(handlers=[logging.FileHandler('llmagents.log', mode='w', encoding='utf-8'),
+logging.basicConfig(handlers=[logging.FileHandler('frank.log', mode='w', encoding='utf-8'),
                     logging.StreamHandler(sys.stdout)],
                     format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                     datefmt='%H:%M:%S',
                     level=logging.INFO)
 
-logging.info("Running llmagents")
+logging.info("Running Dr. Frankenstein")
 
 logger = logging.getLogger('main')
 

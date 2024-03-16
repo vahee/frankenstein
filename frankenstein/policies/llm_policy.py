@@ -5,7 +5,7 @@ import orjson
 
 from agentopy import IState, IAction, IPolicy, WithActionSpaceMixin, Action, ActionResult, EntityInfo
 
-from llmagents.language.protocols import ILanguageModel
+from frankenstein.lib.language.protocols import ILanguageModel
 
 
 class LLMPolicy(WithActionSpaceMixin, IPolicy):

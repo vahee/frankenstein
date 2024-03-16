@@ -3,7 +3,7 @@ import orjson
 
 from agentopy import WithStateMixin, WithActionSpaceMixin, Action, ActionResult, IEnvironmentComponent, EntityInfo
 
-from llmagents.lib.communication import IMessaging
+from frankenstein.lib.networking.communication import IMessaging
 
 
 class Messenger(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):

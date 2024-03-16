@@ -1,6 +1,6 @@
 from typing import Dict, Any
 from agentopy import ActionResult, IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo
-from llmagents.language.protocols import ILanguageModel
+from frankenstein.lib.language.protocols import ILanguageModel
 
 
 class Creativity(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):

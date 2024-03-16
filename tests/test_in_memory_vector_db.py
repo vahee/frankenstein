@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from llmagents.db.in_memory_vector_db import InMemoryVectorDB
+from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
 
 
 @pytest.mark.asyncio

@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from websockets.server import serve
 from websockets import ConnectionClosed, WebSocketServerProtocol
 
-from llmagents.lib.protocols import IMessaging
+from frankenstein.lib.networking.protocols import IMessaging
 
 logger = logging.getLogger('Communication')
 
@@ -50,6 +50,9 @@ class WebsocketMessagingServer(IMessaging):
 
     async def handler(self, websocket: WebSocketServerProtocol):
         """Handles incoming websocket connections. This is a blocking operation."""
+        if self._connection is not None:
+            await websocket.close(reason="Another connection is already open")
+            return
         self._connection = websocket
         logger.info(
             f"Websocket connected: {websocket.remote_address} {'*'* 10} {websocket.local_address}")

@@ -2,7 +2,7 @@ from typing import List, Any
 import numpy as np
 from typing import Literal
 
-from llmagents.db.protocols import IVectorDB
+from frankenstein.lib.db.protocols import IVectorDB
 
 
 class InMemoryVectorDB(IVectorDB):

@@ -1,6 +1,6 @@
-# llmagents (wip)
+# Dr. Frankenstein (wip)
 
-Inspired by AutoGPT, Agent-GPT and other projects aiming to implement autonomous agents with LLMs as policies. `llmagents` adds its own flavour to the pack of existing projects. It differentiates itself by: 
+Inspired by AutoGPT, Agent-GPT and other projects aiming to implement autonomous agents with LLMs as policies. Dr. Frankenstein adds its own flavour to the pack of existing projects. It differentiates itself by: 
 - it is designed to work truly autonomously by giving the agent curated access to the user's environment like email, calendar, etc. and define its behaviour based on the user's preferences in plain English, like one would do with a human assistant
 - lightweight and easy to use
 - being modular and extensible

@@ -1,7 +1,8 @@
-from typing import List, Any, Protocol
+from typing import List, Protocol, Any, runtime_checkable
 import numpy as np
 
 
+@runtime_checkable
 class IVectorDB(Protocol):
     async def add(self, key: np.ndarray, value: Any) -> int:
         """Adds the specified key and value to the DB"""

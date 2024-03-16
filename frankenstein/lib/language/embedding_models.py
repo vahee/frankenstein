@@ -4,7 +4,7 @@ import numpy as np
 from typing import Literal
 from sentence_transformers import SentenceTransformer
 
-from llmagents.language.protocols import IEmbeddingModel
+from frankenstein.lib.language.protocols import IEmbeddingModel
 
 logger = logging.getLogger('language_model')
 
