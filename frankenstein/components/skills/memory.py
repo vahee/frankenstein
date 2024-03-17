@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Tuple
 from datetime import datetime
 import numpy as np
 
@@ -58,18 +58,15 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
 
         if len(memory_data.keys()):
 
-            memory_data["Memory type"] = 'Action was taken'
-
-            memory_data["Action time"] = datetime.now().strftime(
+            memory_data["Memory time"] = datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S, %A")
 
-            key: np.ndarray = await self._embed(memory_data)
+            key, _ = await self.add(memory_data)
 
-            latest_memories_indices = await self.db.search(key, self.memory_size - 1)
+            latest_memories_indices = await self.db.search(key, self.memory_size)
             
-            _: int = await self.db.add(key, memory_data)
-
             latest_memories = [await self.db.get(idx) for idx in latest_memories_indices]
+            latest_memories.sort(key=lambda x: x['Memory time']) # sort by time
             
             for i, mem in enumerate(latest_memories):
                 agent.state.set_item(
@@ -80,6 +77,14 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
         agent.state.remove_item(SharedStateKeys.AGENT_ACTION_RESULT)
         agent.state.remove_item(SharedStateKeys.AGENT_THOUGHTS)
 
+    async def add(self, data: dict) -> Tuple[np.ndarray, int]:
+        """Adds the specified data to the memory"""
+        key: np.ndarray = await self._embed(data)
+
+        idx: int = await self.db.add(key, data)
+
+        return key, idx
+    
     async def recall(self, topic: str) -> ActionResult:
         """Recalls memories about the given topic"""
         key: np.ndarray = await self._embed(topic)
