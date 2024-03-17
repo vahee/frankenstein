@@ -1,4 +1,4 @@
-from typing import Any, List, Dict
+from typing import Any, List
 import orjson
 
 from agentopy import WithStateMixin, WithActionSpaceMixin, Action, ActionResult, IEnvironmentComponent, EntityInfo
@@ -13,7 +13,7 @@ class Messenger(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         super().__init__()
         self.action_space.register_actions([
             Action(
-                "send_message", "use this action to send a text message to the user (input param: 'message' of string type)", self.send_message),
+                "send_message", "use this action to send a text message to the user, use it as the main way to interact with the user (input param: 'message' of string type)", self.send_message),
             Action(
                 "fetch_messages", "use this action to check messages user sent to you, prioritise acting on those", self.get_messages),
         ])

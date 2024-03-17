@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
-import orjson
 import logging
+import orjson
 
 from agentopy import WithStateMixin, WithActionSpaceMixin, IAgentComponent, IAgent, IAction, IState, EntityInfo
 

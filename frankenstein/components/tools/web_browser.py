@@ -1,10 +1,11 @@
-from typing import Dict, Any, Literal
+from typing import Literal
 from os import linesep
+import json
 import requests
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
+
 from agentopy import ActionResult, WithStateMixin, WithActionSpaceMixin, Action, IEnvironmentComponent, EntityInfo
-import json
 from frankenstein.lib.language.protocols import ILanguageModel
 
 

@@ -1,10 +1,11 @@
-from agentopy import Action, ActionResult, IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, EntityInfo
-from imap_tools import MailBox, BaseMailBox, OR, AND
-import smtplib
 import ssl
-from typing import List, Any, Dict
+from typing import List, Any
 import logging
 from os import linesep
+import smtplib
+from imap_tools import MailBox, BaseMailBox, OR, AND
+
+from agentopy import Action, ActionResult, IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, EntityInfo
 
 logger = logging.getLogger('[Component][Email]')
 

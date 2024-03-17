@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import List
 from os import linesep
 
 from agentopy import WithStateMixin, WithActionSpaceMixin, Action, ActionResult, IEnvironmentComponent, EntityInfo

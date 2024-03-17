@@ -1,8 +1,8 @@
-from typing import Dict, Any, Tuple
+from typing import Any
 from datetime import datetime
 import numpy as np
 
-from agentopy import WithActionSpaceMixin, ActionResult, SharedStateKeys, IAgent, IAgentComponent, WithStateMixin, EntityInfo
+from agentopy import WithActionSpaceMixin, ActionResult, SharedStateKeys, IAgent, IAgentComponent, WithStateMixin, EntityInfo, Action
 
 from frankenstein.lib.language.protocols import IEmbeddingModel
 from frankenstein.lib.db.protocols import IVectorDB
@@ -18,6 +18,10 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
         self.db: IVectorDB = db
         self.memory_size: int = memory_size
         self.embedding_model: IEmbeddingModel = embedding_model
+        
+        self.action_space.register_actions([
+            Action("recall", "Recall memories about given topic", self.recall)
+        ])
 
     async def on_heartbeat(self, agent: IAgent) -> None:
         """Updates the component with the specified action and arguments"""
@@ -59,13 +63,14 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
             memory_data["Action time"] = datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S, %A")
 
-            _, key = await self.add(memory_data)
+            key: np.ndarray = await self._embed(memory_data)
 
             latest_memories_indices = await self.db.search(key, self.memory_size - 1)
+            
+            _: int = await self.db.add(key, memory_data)
 
             latest_memories = [await self.db.get(idx) for idx in latest_memories_indices]
-            latest_memories.append(memory_data)
-
+            
             for i, mem in enumerate(latest_memories):
                 agent.state.set_item(
                     f"agent/components/{self.info().name}/{i}", mem)
@@ -75,14 +80,16 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
         agent.state.remove_item(SharedStateKeys.AGENT_ACTION_RESULT)
         agent.state.remove_item(SharedStateKeys.AGENT_THOUGHTS)
 
-    async def add(self, value: Dict[str, Any] | str) -> Tuple[int, np.ndarray]:
-        """Adds the specified value to the memory and returns the index and the key"""
-        key: np.ndarray = await self._embed(value)
+    async def recall(self, topic: str) -> ActionResult:
+        """Recalls memories about the given topic"""
+        key: np.ndarray = await self._embed(topic)
 
-        idx: int = await self.db.add(key, value)
+        indices: list[int] = await self.db.search(key, self.memory_size)
 
-        return idx, key
+        memories: list[dict] = [await self.db.get(idx) for idx in indices]
 
+        return ActionResult(value=memories, success=True)
+    
     async def _embed(self, value: Any) -> np.ndarray:
         """Embeds the specified value"""
         text_values = []
