@@ -16,6 +16,7 @@ class Email(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
     def __init__(self,
                  imap_address: str,
                  smtp_address: str,
+                 imap_port: int,
                  smtp_port: int,
                  login: str,
                  password: str,
@@ -23,6 +24,7 @@ class Email(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
                  outbound_emails_whitelist: List[str] | None = None) -> None:
         super().__init__()
         self._imap_address: str = imap_address
+        self._imap_port: int = imap_port
         self._smtp_address: str = smtp_address
         self._smtp_port: int = smtp_port
         self._login: str = login
@@ -43,7 +45,7 @@ class Email(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         )
 
     async def _connect(self):
-        self._mailbox: BaseMailBox = MailBox(self._imap_address).login(
+        self._mailbox: BaseMailBox = MailBox(self._imap_address, self._imap_port).login(
             self._login, self._password, initial_folder='INBOX')
         self._smtp_server: smtplib.SMTP = smtplib.SMTP(
             self._smtp_address, self._smtp_port)

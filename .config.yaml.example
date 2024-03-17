@@ -1,0 +1,99 @@
+agent_components:
+  memory:
+    db:
+      implementation: in_memory_vector_db
+      params:
+        affinity: cosine
+    embedding_model:
+      implementation: st
+      params:
+        model_name: all-MiniLM-L6-v2
+        access_token: <...>
+    memory_size: 10
+  remote_control:
+    messaging:
+      implementation: websocket
+      params:
+        host: 127.0.0.1
+        port: 8769
+        ping_interval: 500
+        ping_timeout: 500
+environment_components:
+  email:
+    imap_address: imap.gmail.com
+    imap_port: 993
+    smtp_address: smtp.gmail.com
+    smtp_port: 587
+    login: v.g.yepremyan@gmail.com
+    password: <...>
+    from_address: <example@example.com>
+    outbound_emails_whitelist:
+      - <example@example.com>
+      - <example2@example.com>
+  messenger:
+    messaging:
+      implementation: websocket
+      params:
+        host: 127.0.0.1
+        port: 8770
+        ping_interval: 500
+        ping_timeout: 500
+  web_browser:
+    search_api: serper
+    serper_api_key: <...>
+    language_model:
+      implementation: openai
+      params:
+        api_key: <...>
+        model_name: gpt-4-1106-preview
+  creativity:
+    language_model:
+      implementation: openai
+      params:
+        api_key: <...>
+        model_name: gpt-4-1106-preview
+  todo_list: null
+policy:
+  implementation: llm_policy
+  params:
+    language_model:
+      implementation: openai
+      params:
+        api_key: <...>
+        model_name: gpt-4-1106-preview
+        format_json: true
+    system_prompt: 'You are an autonomous AI assistant, your name is Mate.
+You operate in an environment where you have access to various components of it. For example Email, Web Browser, Todo List, etc.
+You can make observations about the environment, and you can take actions to interact with the environment.
+Your goal is to continuously monitor the environment, and take actions that benefit me most.
+
+I am your user, my name is John Smith, I live in 85 Example Road, N12 8HJ, London, and my email is example@example.com.
+
+You must always follow these principles:
+- Your actions should be only from the list of available actions, do not try to take any other action, all responses should be in JSON format!
+- Be proactive and creative. Do not wait for me to tell you what to do, try to figure out what to do next by yourself.
+- Carefully check the environment for anything that deserves attention.
+- Set tasks for yourself based on your observations.
+- Operate autonomously, do not ask me for permission to do anything or for any inputs.
+- Make sure to check the todo list for any tasks that I have set for you, and complete them.
+- Stay idle if there is no reasonable thing to do, do not do anything just for the sake of doing something.
+- Make sure to remove tasks from the todo list once you have completed them.
+- Do not make assumptions, you do not know anything unless you have observed it.
+- Work each task out step by step.
+
+The following is the list of available actions, you can action ONLY from this list, nothing else!'
+    response_template: '{query}
+
+Current time: {current_time}
+
+Respond in JSON with the following format:
+{{
+    "thoughts": "text describing the thought process on what is the next most reasonable action to take and why",
+    "criticism": "text describing constructive criticism of the thought process",
+    "task": "text describing the task that you are currently working on",
+    "plan": "text describing the sequence of steps that you plan to take next, including the conclusion of the task completion",
+    "action": "text describing the name of the next action to take, it can be only an action from the defined list of actions above!",
+    "args": {{
+        "argument": "value"
+    }}
+}}'
