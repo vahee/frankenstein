@@ -11,10 +11,10 @@ Inspired by AutoGPT, Agent-GPT and other projects aiming to implement autonomous
 ## Installation
     
 1. Clone the repository
-2. Create .config.yaml based on .config.yaml.template
+2. Create .my.config.yaml based on .config.yaml.example
 3. Create a virtual environment
 4. Install the requirements (requirements.txt)
 5. python main.py
-6. Talk to the agent in plain text via websocket
+6. Talk to the agent in plain text via websocket (using address you specify for messenger component)
 
 or create a devcontainer in VSCode based on the .devcontainer folder

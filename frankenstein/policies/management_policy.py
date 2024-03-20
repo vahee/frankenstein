@@ -1,5 +1,5 @@
 from typing import Any, Dict, Tuple
-from agentopy import IAction, IState, IPolicy, WithActionSpaceMixin
+from agentopy import IAction, IState, IPolicy, WithActionSpaceMixin, EntityInfo
 
 
 class ManagerPolicy(WithActionSpaceMixin, IPolicy):
@@ -13,3 +13,10 @@ class ManagerPolicy(WithActionSpaceMixin, IPolicy):
             return self.action_space.get_action('nothing'), {}, {}
         
         return self.action_space.get_action(action_name), action_args, {}
+    
+    def info(self) -> EntityInfo:
+        return EntityInfo(
+            name="ManagerPolicy",
+            version="0.1.0",
+            params={}
+        )

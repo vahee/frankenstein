@@ -2,14 +2,17 @@ import traceback
 import asyncio as aio
 import logging
 import sys
+from uuid import uuid4
+from multiprocessing import Process
 
 from typing import Tuple, Dict
     
-from agentopy import IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult
+from agentopy import IAgentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult
 
 from frankenstein.lib.language.openai_language_models import OpenAIChatModel
 from frankenstein.lib.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
 from frankenstein.policies.llm_policy import LLMPolicy
+from frankenstein.policies.management_policy import ManagerPolicy
 from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
 from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
 from frankenstein.lib.networking.communication import WebsocketMessagingServer
@@ -25,12 +28,14 @@ logging.info("Running Dr. Frankenstein")
 
 logger = logging.getLogger('main')
 
-class Management(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
+class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
     """Implements a creativity environment component"""
 
     def __init__(self):
         """Initializes the creativity environment component"""
         super().__init__()
+        
+        self._agents = {}
         
         self.action_space.register_actions(
             [
@@ -38,38 +43,70 @@ class Management(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
                     "agents", "get the list of running agents.", self.agents),
                 Action(
                     "launch_agent", "launch a new agent", self.launch_agent),
-                Action("kill_agent", "kill an agent", self.kill_agent)
+                Action("kill_agent", "kill an agent", self.kill_agent),
+                Action("nothing", "do nothing", self.do_nothing)
             ])
-        
+    
+    def __del__(self):
+        for agent_id, agent in self._agents.items():
+            agent['process'].terminate()
+            del self._agents[agent_id]
+    
     async def agents(self) -> ActionResult:
         """Creates text content"""
-        return ActionResult(value="List of agents", success=True)
+        
+        agents = []
+        
+        for agent_id, agent in self._agents.items():
+            agents.append({
+                'id': agent_id,
+                'config': agent['config']
+            })
+        
+        return ActionResult(value=agents, success=True)
 
     async def launch_agent(self, agent_config: Dict) -> ActionResult:
         """Creates text content"""
+        agent_id = str(uuid4())
+        
+        p = Process(target=self.launch, args=(agent_config,))
+        p.start()
+        
+        self._agents[agent_id] = {
+            'process': p,
+            'config': agent_config
+        }
+        
         return ActionResult(value="Agent launched", success=True)
     
     async def kill_agent(self, agent_id: str) -> ActionResult:
         """Creates text content"""
+        
+        self._agents[agent_id]['process'].terminate()
+        del self._agents[agent_id]
+        
         return ActionResult(value="Agent killed", success=True)
+    
+    async def do_nothing(self) -> ActionResult:
+        """Does nothing"""
+        return ActionResult(value="Nothing to do", success=True)
 
     def create_env_and_agent(self, config: Dict) -> Tuple[IEnvironment, IAgent]:
     
         environment_components = []
         agent_components = []
         
-        for component_name, component_config in config.get("agent_components", {}).items():
+        for component_name, component_config in config.get("agent", {}).get("components", {}).items():
             agent_components.append(self.create_component(component_name, component_config))
         
-        for component_name, component_config in config.get("environment_components", {}).items():
+        for component_name, component_config in config.get("environment", {}).get("components", {}).items():
             environment_components.append(self.create_component(component_name, component_config))
-        
         
         policy = self.create_policy(config)
 
-        env = Environment(environment_components)
+        env = Environment(environment_components, tick_rate_ms=config.get("environment", {}).get("tick_rate_ms", 1000))
 
-        agent = Agent(policy, env, agent_components)
+        agent = Agent(policy, env, agent_components, heartrate_ms=config.get("agent", {}).get("heartrate_ms", 1000))
 
         return env, agent
 
@@ -88,6 +125,8 @@ class Management(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
                 return Email(**component_config)
             except Exception as e:
                 raise Exception(f"Failed to create email component: {e}")
+        if component_name == "management":
+            return Management()
         if component_name == "memory":
             assert component_config.get("embedding_model") is not None, "Embedding model is not set"
             embedding_model = self.create_embegging_model(component_config["embedding_model"])
@@ -129,7 +168,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
 
     def create_policy(self, config: Dict):
         policy_name = config.get("policy", {}).get("implementation")
-        assert policy_name in ["llm_policy", "trading_policy"], "Policy is not set or not supported"
+        assert policy_name in ["llm_policy", "trading_policy", "management_policy"], "Policy is not set or not supported"
         if policy_name == "llm_policy":
             params = config["policy"].get("params", {})
             assert params.get("language_model") is not None, "Language model is not set"
@@ -142,6 +181,8 @@ class Management(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
                 response_template
             )
             return policy
+        if policy_name == "management_policy":
+            return ManagerPolicy()
         raise Exception("Policy is not set or not supported")
         
 
@@ -193,8 +234,9 @@ class Management(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
             print(expection)
         aio.run(run())
 
-    async def on_tick(self) -> None:
-        self._state.set_item("status", "Management skills ready.")
+    async def on_heartbeat(self, agent: IAgent) -> None:
+        agent.state.set_item(f"agent/components/{self.info().name}/status", "Management skills ready.")
+        agent.state.set_item(f"agent/components/{self.info().name}/agents", (await self.agents()).value)
 
     def info(self) -> EntityInfo:
         return EntityInfo(

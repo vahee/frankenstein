@@ -1,58 +1,62 @@
-agent_components:
-  memory:
-    db:
-      implementation: in_memory_vector_db
-      params:
-        affinity: cosine
-    embedding_model:
-      implementation: st
-      params:
-        model_name: all-MiniLM-L6-v2
-        access_token: <...>
-    memory_size: 10
-  remote_control:
-    messaging:
-      implementation: websocket
-      params:
-        host: 127.0.0.1
-        port: 8769
-        ping_interval: 500
-        ping_timeout: 500
-environment_components:
-  email:
-    imap_address: imap.gmail.com
-    imap_port: 993
-    smtp_address: smtp.gmail.com
-    smtp_port: 587
-    login: v.g.yepremyan@gmail.com
-    password: <...>
-    from_address: <example@example.com>
-    outbound_emails_whitelist:
-      - <example@example.com>
-      - <example2@example.com>
-  messenger:
-    messaging:
-      implementation: websocket
-      params:
-        host: 127.0.0.1
-        port: 8770
-        ping_interval: 500
-        ping_timeout: 500
-  web_browser:
-    search_api: serper
-    serper_api_key: <...>
-    language_model:
-      implementation: openai
-      params:
-        api_key: <...>
-        model_name: gpt-4-1106-preview
-  creativity:
-    language_model:
-      implementation: openai
-      params:
-        api_key: <...>
-        model_name: gpt-4-1106-preview
-  todo_list: null
+agent
+  components:
+    heartrate_ms: 1000
+    memory:
+      db:
+        implementation: in_memory_vector_db
+        params:
+          affinity: cosine
+      embedding_model:
+        implementation: st
+        params:
+          model_name: all-MiniLM-L6-v2
+          access_token: <...>
+      memory_size: 10
+    remote_control:
+      messaging:
+        implementation: websocket
+        params:
+          host: 127.0.0.1
+          port: 8769
+          ping_interval: 500
+          ping_timeout: 500
+environment:
+  tick_rate_ms: 1000
+  components:
+    email:
+      imap_address: imap.gmail.com
+      imap_port: 993
+      smtp_address: smtp.gmail.com
+      smtp_port: 587
+      login: v.g.yepremyan@gmail.com
+      password: <...>
+      from_address: <example@example.com>
+      outbound_emails_whitelist:
+        - <example@example.com>
+        - <example2@example.com>
+    messenger:
+      messaging:
+        implementation: websocket
+        params:
+          host: 127.0.0.1
+          port: 8770
+          ping_interval: 500
+          ping_timeout: 500
+    web_browser:
+      search_api: serper
+      serper_api_key: <...>
+      language_model:
+        implementation: openai
+        params:
+          api_key: <...>
+          model_name: gpt-4-1106-preview
+    creativity:
+      language_model:
+        implementation: openai
+        params:
+          api_key: <...>
+          model_name: gpt-4-1106-preview
+    todo_list: null
 policy:
   implementation: llm_policy
   params:

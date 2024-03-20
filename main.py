@@ -9,9 +9,11 @@ def load_config_from_yaml():
     
     argparser = argparse.ArgumentParser()
     argparser.add_argument(
-        "-config", default=Path(".config.yaml"), help="Path to the config file")
+        "-c", "--config", default=".config.yaml", help="Path to the config file")
     args, _ = argparser.parse_known_args()
+    
     config_path = Path(args.config)
+    print(config_path)
     if not config_path.exists():
         raise Exception("Config file does not exist")
 

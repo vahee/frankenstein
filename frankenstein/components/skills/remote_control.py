@@ -103,9 +103,9 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
 
         if action is not None:
             agent.state.set_item(
-                "agent/components/remote_control/force_action/name", action)
+                f"agent/components/{self.info().name}/force_action/name", action)
             agent.state.set_item(
-                "agent/components/remote_control/force_action/args", args)
+                f"agent/components/{self.info().name}/force_action/args", args)
 
     async def authenticate(self, agent: IAgent, message: Dict) -> None:
         """Authenticates the user"""
