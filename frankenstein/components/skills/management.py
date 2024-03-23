@@ -1,18 +1,18 @@
+import sys
+import logging
 import traceback
 import asyncio as aio
-import logging
-import sys
 from uuid import uuid4
 from multiprocessing import Process
-
 from typing import Tuple, Dict
-    
+import yaml
+
 from agentopy import IAgentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult
 
 from frankenstein.lib.language.openai_language_models import OpenAIChatModel
 from frankenstein.lib.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
 from frankenstein.policies.llm_policy import LLMPolicy
-from frankenstein.policies.management_policy import ManagerPolicy
+from frankenstein.policies.management_policy import ManagementPolicy
 from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
 from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
 from frankenstein.lib.networking.communication import WebsocketMessagingServer
@@ -65,9 +65,11 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         
         return ActionResult(value=agents, success=True)
 
-    async def launch_agent(self, agent_config: Dict) -> ActionResult:
+    async def launch_agent(self, agent_config: str) -> ActionResult:
         """Creates text content"""
         agent_id = str(uuid4())
+        
+        logger.info(f"Launching agent with id {agent_id} and config {agent_config}")
         
         p = Process(target=self.launch, args=(agent_config,))
         p.start()
@@ -182,7 +184,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             )
             return policy
         if policy_name == "management_policy":
-            return ManagerPolicy()
+            return ManagementPolicy()
         raise Exception("Policy is not set or not supported")
         
 
@@ -220,12 +222,13 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             return SentenceTransformerEmbeddingModel(model_name, access_token)
         raise Exception("Embeddings model is not set or not supported")
 
-    def launch(self, config: Dict):
+    def launch(self, config_str: str):
         """
         Main function of the project. It is responsible for running the assitant.
         """
         logger.info("Starting environment and agent")
         async def run():
+            config = yaml.safe_load(config_str)
             env, agent = self.create_env_and_agent(config)
             e = await aio.wait([env.start(), agent.start()], return_when=aio.FIRST_EXCEPTION)
             expection = e[0].pop().exception()
