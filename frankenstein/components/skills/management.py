@@ -69,8 +69,6 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         """Creates text content"""
         agent_id = str(uuid4())
         
-        logger.info(f"Launching agent with id {agent_id} and config {agent_config}")
-        
         p = Process(target=self.launch, args=(agent_config,))
         p.start()
         

@@ -1,13 +1,15 @@
 from typing import Any, Dict, Tuple
 from agentopy import IAction, IState, IPolicy, WithActionSpaceMixin, EntityInfo
 
-
-class ManagerPolicy(WithActionSpaceMixin, IPolicy):
+class ManagementPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
 
-        action_name = state.get_item('agent/components/remote_control/force_action/name')
-        action_args = state.get_item('agent/components/remote_control/force_action/args')
+        action_name = state.get_item('agent/components/RemoteControl/force_action/name')
+        action_args = state.get_item('agent/components/RemoteControl/force_action/args')
+        
+        state.remove_item('agent/components/RemoteControl/force_action/name')
+        state.remove_item('agent/components/RemoteControl/force_action/args')
         
         if not action_name:
             return self.action_space.get_action('nothing'), {}, {}
@@ -16,7 +18,7 @@ class ManagerPolicy(WithActionSpaceMixin, IPolicy):
     
     def info(self) -> EntityInfo:
         return EntityInfo(
-            name="ManagerPolicy",
+            name="ManagementPolicy",
             version="0.1.0",
             params={}
         )

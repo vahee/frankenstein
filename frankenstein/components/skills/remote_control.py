@@ -47,7 +47,7 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             "get_agent_info": self.get_agent_info,
             "force_action": self.force_action,
             "authenticate": self.authenticate,
-        }.get(message.get("command"), self.do_nothing)(agent, message)
+        }.get(message.get("command"), self.do_nothing)(agent, message.get("data"))
 
     async def do_nothing(self, agent: IAgent, message: Dict) -> None:
         """Does nothing"""
@@ -98,12 +98,12 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
 
     async def force_action(self, agent: IAgent, message: Dict) -> None:
         """Forces the agent to perform an action"""
-        action = message.get("action")
+        name = message.get("name")
         args = message.get("args")
 
-        if action is not None:
+        if name is not None:
             agent.state.set_item(
-                f"agent/components/{self.info().name}/force_action/name", action)
+                f"agent/components/{self.info().name}/force_action/name", name)
             agent.state.set_item(
                 f"agent/components/{self.info().name}/force_action/args", args)
 
