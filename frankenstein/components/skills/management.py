@@ -55,13 +55,13 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
     async def agents(self) -> ActionResult:
         """Creates text content"""
         
-        agents = []
+        agents = {}
         
         for agent_id, agent in self._agents.items():
-            agents.append({
-                'id': agent_id,
-                'config': agent['config']
-            })
+            agents[agent_id] = {
+                'config_yaml': agent['config'],
+                'config': yaml.safe_load(agent['config'])   
+            }
         
         return ActionResult(value=agents, success=True)
 
@@ -114,20 +114,20 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         """
         Creates a component based on the configuration
         """
-        if component_name == "todo_list":
+        if component_name == "TodoList":
             return TodoList()
-        if component_name == "creativity":
+        if component_name == "Creativity":
             assert component_config.get("language_model") is not None, "Language model is not set"
             language_model = self.create_language_model(component_config["language_model"])
             return Creativity(language_model)
-        if component_name == "email":
+        if component_name == "Email":
             try:
                 return Email(**component_config)
             except Exception as e:
                 raise Exception(f"Failed to create email component: {e}")
-        if component_name == "management":
+        if component_name == "Management":
             return Management()
-        if component_name == "memory":
+        if component_name == "Memory":
             assert component_config.get("embedding_model") is not None, "Embedding model is not set"
             embedding_model = self.create_embegging_model(component_config["embedding_model"])
             assert component_config.get("db", {}).get("implementation") in ["in_memory_vector_db"], "DB is not set or not supported"
@@ -137,7 +137,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             assert component_config.get("memory_size"), "Memory size is not set or is 0"
             
             return Memory(db, embedding_model, component_config["memory_size"])
-        if component_name == "web_browser":
+        if component_name == "WebBrowser":
             assert component_config.get("language_model") is not None, "Language model is not set"
             language_model = self.create_language_model(component_config["language_model"])
             search_api = component_config.get("search_api")
@@ -146,7 +146,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
                 serper_api_key = component_config.get("serper_api_key")
                 assert serper_api_key is not None, "Serper API key is not set"
             return WebBrowser(language_model, search_api, serper_api_key)
-        if component_name == "messenger":
+        if component_name == "Messenger":
             assert component_config.get("messaging", {}).get("implementation") in ["websocket"], "Messaging is not set or not supported"
             if component_config["messaging"]["implementation"] == "websocket":
                 params = component_config["messaging"].get("params", {})
@@ -155,7 +155,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
                 except Exception as e:
                     raise Exception(f"Failed to create messaging server: {e}")
             return Messenger(messaging)
-        if component_name == "remote_control":
+        if component_name == "RemoteControl":
             assert component_config.get("messaging", {}).get("implementation") in ["websocket"], "Messaging is not set or not supported"
             if component_config["messaging"]["implementation"] == "websocket":
                 params = component_config["messaging"].get("params", {})
@@ -236,6 +236,10 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         aio.run(run())
 
     async def on_heartbeat(self, agent: IAgent) -> None:
+        for agent_id, agent_data in self._agents.items():
+            if not agent_data['process'].is_alive():
+                agent_data['process'].terminate()
+                del self._agents[agent_id]
         agent.state.set_item(f"agent/components/{self.info().name}/status", "Management skills ready.")
         agent.state.set_item(f"agent/components/{self.info().name}/agents", (await self.agents()).value)
 
