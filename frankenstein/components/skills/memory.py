@@ -23,7 +23,7 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
             Action("recall", "Recall memories about given topic", self.recall)
         ])
 
-    async def on_heartbeat(self, agent: IAgent) -> None:
+    async def on_agent_heartbeat(self, agent: IAgent) -> None:
         """Updates the component with the specified action and arguments"""
         memory_data: dict = {}
 
@@ -53,6 +53,19 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
                 assert isinstance(
                     v, str), f"At the moment memory only supports string values given {v} with type {type(v)}"
                 memory_data[k] = v
+        elif isinstance(result.value, list):
+            processed_result = []
+            for v in result.value:
+                if isinstance(v, list):
+                    v = ', '.join(v)
+                if isinstance(v, dict):
+                    v = ', '.join([f"{k}: {v}" for k, v in v.items()])
+                if v is None:
+                    v = ""
+                assert isinstance(
+                    v, str), f"At the moment memory only supports string values given {v} with type {type(v)}"
+                processed_result.append(v)
+            memory_data['Action result'] = ', '.join(processed_result)
         elif isinstance(result.value, str):
             memory_data["Action result"] = result.value
 
@@ -106,6 +119,9 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
                     text_values.append(f"{key}: {value}")
         assert text_values, "Data item must have text values to be embeded for memory"
         return await self.embedding_model.embed(' '.join(text_values))
+    
+    async def tick(self) -> None:
+        ...
 
     def info(self) -> EntityInfo:
         """Returns the component info"""

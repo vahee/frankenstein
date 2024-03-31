@@ -15,7 +15,7 @@ from frankenstein.policies.llm_policy import LLMPolicy
 from frankenstein.policies.management_policy import ManagementPolicy
 from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
 from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
-from frankenstein.lib.networking.communication import WebsocketMessagingServer
+from frankenstein.lib.networking.communication import WebsocketMessagingJsonServer
 from frankenstein.lib.language.protocols import ILanguageModel
 
 logging.basicConfig(handlers=[logging.FileHandler('frank.log', mode='w', encoding='utf-8'),
@@ -104,7 +104,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         
         policy = self.create_policy(config)
 
-        env = Environment(environment_components, tick_rate_ms=config.get("environment", {}).get("tick_rate_ms", 1000))
+        env = Environment(environment_components)
 
         agent = Agent(policy, env, agent_components, heartrate_ms=config.get("agent", {}).get("heartrate_ms", 1000))
 
@@ -151,7 +151,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             if component_config["messaging"]["implementation"] == "websocket":
                 params = component_config["messaging"].get("params", {})
                 try:
-                    messaging = WebsocketMessagingServer(**params)
+                    messaging = WebsocketMessagingJsonServer(**params)
                 except Exception as e:
                     raise Exception(f"Failed to create messaging server: {e}")
             return Messenger(messaging)
@@ -160,10 +160,11 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             if component_config["messaging"]["implementation"] == "websocket":
                 params = component_config["messaging"].get("params", {})
                 try:
-                    messaging = WebsocketMessagingServer(**params)
+                    messaging = WebsocketMessagingJsonServer(**params)
                 except Exception as e:
                     raise Exception(f"Failed to create messaging server: {e}")
-            return RemoteControl(messaging)
+            subscription_update_rate_ms = component_config.get("subscription_update_rate_ms", 1000)
+            return RemoteControl(messaging, subscription_update_rate_ms=subscription_update_rate_ms)
         raise Exception(f"Component {component_name} is not supported")
 
     def create_policy(self, config: Dict):
@@ -228,21 +229,27 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         async def run():
             config = yaml.safe_load(config_str)
             env, agent = self.create_env_and_agent(config)
-            e = await aio.wait([env.start(), agent.start()], return_when=aio.FIRST_EXCEPTION)
+            e = await aio.wait(env.start() + agent.start(), return_when=aio.FIRST_EXCEPTION)
             expection = e[0].pop().exception()
             print(''.join(traceback.format_tb(
                 expection.__traceback__)))
             print(expection)
         aio.run(run())
 
-    async def on_heartbeat(self, agent: IAgent) -> None:
+    async def on_agent_heartbeat(self, agent: IAgent) -> None:
+        agents_to_remove = []
         for agent_id, agent_data in self._agents.items():
             if not agent_data['process'].is_alive():
-                agent_data['process'].terminate()
-                del self._agents[agent_id]
+                agents_to_remove.append(agent_id)
+        for agent_id in agents_to_remove:
+            self._agents[agent_id]["process"].terminate()
+            del self._agents[agent_id]
         agent.state.set_item(f"agent/components/{self.info().name}/status", "Management skills ready.")
         agent.state.set_item(f"agent/components/{self.info().name}/agents", (await self.agents()).value)
-
+    
+    async def tick(self) -> None:
+        ...
+    
     def info(self) -> EntityInfo:
         return EntityInfo(
             name="Management",

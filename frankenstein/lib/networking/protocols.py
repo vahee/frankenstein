@@ -5,14 +5,18 @@ from typing import List, Protocol, Dict, Any, runtime_checkable
 class IMessaging(Protocol):
     """Interface for messaging services"""
 
-    async def send_message(self, message: str) -> None:
+    async def send_message(self, message: Any) -> None:
         """Sends a message"""
         ...
 
-    async def get_messages(self) -> List[str]:
-        """Checks the user's messages"""
+    async def get(self, timeout: float) -> Any:
+        """Gets a message, blocking for timeout seconds"""
         ...
 
+    async def get_all(self) -> List[Any]:
+        """Gets all messages"""
+        ...
+    
     async def is_connected(self) -> bool:
         """Returns True if the messaging service is connected, False otherwise"""
         ...

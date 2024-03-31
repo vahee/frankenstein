@@ -147,7 +147,7 @@ class WebBrowser(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
                     """)
         return findings
 
-    async def on_tick(self) -> None:
+    async def tick(self) -> None:
         self._state.set_item("status", "Web browser is ready for use")
 
     def info(self) -> EntityInfo:

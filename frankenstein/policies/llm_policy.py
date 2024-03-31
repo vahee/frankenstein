@@ -61,7 +61,15 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
         """Generates an action based on the current state of the environment."""
-
+        action_name = state.get_item('agent/components/RemoteControl/force_action/name')
+        action_args = state.get_item('agent/components/RemoteControl/force_action/args')
+        
+        state.remove_item('agent/components/RemoteControl/force_action/name')
+        state.remove_item('agent/components/RemoteControl/force_action/args')
+        
+        if action_name:
+            return self.action_space.get_action(action_name), action_args, {"Thoughts": "Forced action."}
+    
         if self._wait_start_ts is not None:
             # TODO: check if there is an actual change in the environment and stop waiting if there is
             messenger_status = state.get_item(
@@ -99,6 +107,9 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
         if isinstance(value, str):
             return f"""{key}: {value}{linesep}"""
 
+        if isinstance(value, list):
+            return f"""{key}: {', '.join(value)}{linesep}"""
+            
         return f"""{key}: {linesep.join(
                         [f"{k}: {v}" for k, v in value.items()])}{linesep}"""
 

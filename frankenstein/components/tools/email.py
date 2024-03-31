@@ -64,7 +64,7 @@ class Email(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         try:
             await self._connect()
 
-            message = f"From: {self._from_address}{linesep}To: {to}{linesep}Subject: {subject}{linesep}{linesep}{body}"
+            message = f"From: {self._from_address}{linesep}To: {to}{linesep}Subject: {subject}{linesep}{linesep}{body}".encode()
 
             if isinstance(to, str):
                 to_list = list(map(lambda s: s.strip(), to.split(',')))
@@ -116,7 +116,7 @@ class Email(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
             await self._disconnect()
             return ActionResult(value=str(error), success=False)
 
-    async def on_tick(self) -> None:
+    async def tick(self) -> None:
         # await self._connect()
         # unseen_emails = len(
         #     list(self._mailbox.fetch(AND(seen=False), reverse=True, limit=10, headers_only=True, mark_seen=False)))

@@ -1,8 +1,8 @@
-from agentopy import ActionResult, IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo
+from agentopy import ActionResult, IAgentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo, IAgent
 from frankenstein.lib.language.protocols import ILanguageModel
 
 
-class Creativity(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
+class Creativity(WithActionSpaceMixin, IAgentComponent):
     """Implements a creativity environment component"""
 
     def __init__(self, language_model: ILanguageModel):
@@ -36,8 +36,11 @@ class Creativity(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         lm_response = await self._language_model.query(f"The objective is \"{objective}\"", context)
         return ActionResult(value=lm_response, success=True)
 
-    async def on_tick(self) -> None:
-        self._state.set_item("status", "Creativity is active.")
+    async def on_agent_heartbeat(self, agent: IAgent) -> None:
+        agent.state.set_item(f"agent/components/{self.info().name}/status", "Creativity is active.")
+    
+    async def tick(self) -> None:
+        ...
 
     def info(self) -> EntityInfo:
         return EntityInfo(

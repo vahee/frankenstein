@@ -52,7 +52,7 @@ class TodoList(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         """
         return ActionResult(value=linesep.join(self._list), success=True)
 
-    async def on_tick(self) -> None:
+    async def tick(self) -> None:
         self._state.set_item(
             "status", {"num_new": len(self._list)})
 
