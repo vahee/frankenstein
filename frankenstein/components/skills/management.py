@@ -2,7 +2,6 @@ import sys
 import logging
 import traceback
 import asyncio as aio
-from uuid import uuid4
 from multiprocessing import Process
 from typing import Tuple, Dict
 import yaml
@@ -36,6 +35,7 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
         super().__init__()
         
         self._agents = {}
+        self._next_agent_id = 1
         
         self.action_space.register_actions(
             [
@@ -67,7 +67,8 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
 
     async def launch_agent(self, agent_config: str) -> ActionResult:
         """Creates text content"""
-        agent_id = str(uuid4())
+        agent_id = str(self._next_agent_id)
+        self._next_agent_id += 1
         
         p = Process(target=self.launch, args=(agent_config,))
         p.start()
