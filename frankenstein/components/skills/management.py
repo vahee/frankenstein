@@ -82,7 +82,8 @@ class Management(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
     
     async def kill_agent(self, agent_id: str) -> ActionResult:
         """Creates text content"""
-        
+        if agent_id not in self._agents:
+            return ActionResult(value="No such agent", success=False)
         self._agents[agent_id]['process'].terminate()
         del self._agents[agent_id]
         
