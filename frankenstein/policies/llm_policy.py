@@ -3,7 +3,7 @@ from datetime import datetime
 from os import linesep
 import orjson
 
-from agentopy import IState, IAction, IPolicy, WithActionSpaceMixin, Action, ActionResult, EntityInfo
+from agentopy import IState, IAction, IPolicy, WithActionSpaceMixin, Action, ActionResult, EntityInfo, SharedStateKeys, IState
 
 from frankenstein.lib.language.protocols import ILanguageModel
 
@@ -31,10 +31,10 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
 
         self.action_space.register_actions([
             Action(
-                "wait", "use this action to wait for a change in environment", self._wait),
+                "wait", "use this action to wait for a change in environment", self._wait, self.info()),
         ])
 
-    async def _wait(self) -> ActionResult:
+    async def _wait(self, *, caller_context: IState) -> ActionResult:
         if self._wait_start_ts is None:
             self._wait_start_ts = datetime.now()
             return ActionResult(value=f"Start waiting for a change in environment for {self._wait_timeout_s} seconds.", success=True)
@@ -67,7 +67,11 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
         state.remove_item('agent/components/RemoteControl/force_action/name')
         state.remove_item('agent/components/RemoteControl/force_action/args')
         
+        caller_context = state.slice_by_prefix(SharedStateKeys.AGENT_ACTION_CONTEXT)
+        
         if action_name:
+            if isinstance(action_args, dict):
+                action_args['caller_context'] = caller_context
             return self.action_space.get_action(action_name), action_args, {"Thoughts": "Forced action."}
     
         if self._wait_start_ts is not None:
@@ -79,7 +83,7 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
                 wait_time_left_s = self._wait_timeout_s - \
                     (datetime.now() - self._wait_start_ts).seconds
                 if wait_time_left_s > 0:
-                    return self.action_space.get_action("wait"), {}, {"Thoughts": "Waiting for a change in environment."}
+                    return self.action_space.get_action("wait"), {"caller_context": caller_context}, {"Thoughts": "Waiting for a change in environment."}
 
         self._wait_start_ts = None
 
@@ -87,11 +91,13 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
 
         query = f"""The following in triple quotes is the current state: \"\"\"{linesep}{state_text}{linesep}\"\"\""""
 
-        response = await self._query_language_model(query)
+        response = await self._query_language_model(query, state)
 
         action_name, args, thoughts = self._response_parser(response)
 
         action = self.action_space.get_action(action_name)
+        
+        args['caller_context'] = caller_context
 
         return action, args, thoughts
 
@@ -120,13 +126,25 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
             current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S, %A")
         )
 
-    async def _query_language_model(self, query: str) -> Dict[str, Any]:
+    async def _query_language_model(self, query: str, state: IState) -> Dict[str, Any]:
         """Queries the language model with the specified query and returns the response as a dictionary"""
         query = self._create_language_model_query(query)
         actions = self.action_space.all_actions()
         f = "{}: {}"
-        actions_str = linesep.join(
-            [f"{action.name()}({', '.join([f.format(k , v) for k, v in action.arguments().items()])}) // {action.description()}" for action in actions])
+        
+        actions_list = []
+        
+        for action in actions:
+            args = {}
+            
+            for k, v in action.arguments().items():
+                if k != "caller_context":
+                    args[k] = v
+                    
+            actions_list.append(f"{action.name()}({', '.join([f.format(k , v) for k, v in args.items()])}) // {action.description()}")
+            
+        
+        actions_str = linesep.join(actions_list)
 
         response = await self._language_model.query(query, f"{self._system_prompt}{linesep}{actions_str}")
         return await self._parse_response(response)
@@ -156,7 +174,7 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
 
     def info(self) -> EntityInfo:
         return EntityInfo(
-            name="LLMPolicy",
+            name=self.__class__.__name__,
             version="0.1.0",
             params={
                 "system_prompt": self._system_prompt,

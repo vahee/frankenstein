@@ -10,6 +10,13 @@ from frankenstein.lib.networking.protocols import IMessaging
 logger = logging.getLogger('Communication')
 
 
+def default(obj: Any) -> Any:
+    if hasattr(obj,'__dict__'):
+        return obj.__dict__()
+    else:
+        return obj
+
+
 class WebsocketMessagingJsonServer(IMessaging):
     """A class to represent a websocket connection. 
     This class is used to send and receive messages from the websocket."""
@@ -32,7 +39,7 @@ class WebsocketMessagingJsonServer(IMessaging):
         try:
             assert self._connection is not None
             try:
-                message = dumps(message).decode()
+                message = dumps(message, default=default).decode()
             except JSONEncodeError as e:
                 logger.error(f"Invalid message: {e}")
                 return

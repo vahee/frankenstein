@@ -5,11 +5,11 @@ import requests
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
 
-from agentopy import ActionResult, WithStateMixin, WithActionSpaceMixin, Action, IEnvironmentComponent, EntityInfo
+from agentopy import ActionResult, WithActionSpaceMixin, Action, IEnvironmentComponent, EntityInfo, State, IState
 from frankenstein.lib.language.protocols import ILanguageModel
 
 
-class WebBrowser(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
+class WebBrowser(WithActionSpaceMixin, IEnvironmentComponent):
     """Implementation of a web browser component"""
 
     def __init__(self, language_model: ILanguageModel, search_api: Literal['ddg', 'serper'] = 'serper', serper_api_key: str | None = None) -> None:
@@ -21,12 +21,12 @@ class WebBrowser(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         self.action_space.register_actions(
             [
                 Action(
-                    "browse_website", "use this action to open a website and look for specific information", self.browse_website),
+                    "browse_website", "use this action to open a website and look for specific information", self.browse_website, self.info()),
                 Action(
-                    "search", "searches Google for the specified query and returns a list of results", self.search)
+                    "search", "searches Google for the specified query and returns a list of results", self.search, self.info())
             ])
 
-    async def search(self, query: str) -> ActionResult:
+    async def search(self, *, query: str, caller_context: IState) -> ActionResult:
         """
         Searches the web for the specified query
         """
@@ -70,7 +70,7 @@ class WebBrowser(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         except Exception as e:
             return ActionResult(value=f"Error: {e}", success=False)
 
-    async def browse_website(self, url: str, text_to_look_for: str | None = None) -> ActionResult:
+    async def browse_website(self, *, url: str, text_to_look_for: str | None = None, caller_context: IState) -> ActionResult:
         """
         Opens a website and returns the text on the page
         """
@@ -148,7 +148,13 @@ class WebBrowser(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
         return findings
 
     async def tick(self) -> None:
-        self._state.set_item("status", "Web browser is ready for use")
+        ...
+        
+    async def observe(self, caller_context: IState) -> State:
+        state = State()
+        state.set_item("status", "Web browser is ready for use")
+        return state
+        
 
     def info(self) -> EntityInfo:
-        return EntityInfo(name="WebBrowser", version="0.1.0", params={})
+        return EntityInfo(name=self.__class__.__name__, version="0.1.0", params={})

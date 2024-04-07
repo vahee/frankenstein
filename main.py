@@ -1,8 +1,9 @@
 import argparse
 from pathlib import Path
-
+import asyncio as aio
+import sys
 from frankenstein.components.skills.management import Management
-
+from agentopy import State
 
 def load_config_from_yaml() -> str:
     
@@ -20,7 +21,16 @@ def load_config_from_yaml() -> str:
         return stream.read()
 
 
-if __name__ == "__main__":
+async def run(yml_str: str):
     management = Management()
-    yml_str = load_config_from_yaml()
-    management.launch(yml_str)
+    try:
+        await management.launch(config_str=yml_str, caller_context=State())
+    except Exception as e:
+        print(e)
+        sys.exit()
+    while True:
+        await aio.sleep(1)
+    
+
+if __name__ == "__main__":
+    aio.run(run(load_config_from_yaml()))

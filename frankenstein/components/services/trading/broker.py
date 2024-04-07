@@ -1,5 +1,5 @@
 import time
-from agentopy import IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, Action
+from agentopy import IEnvironmentComponent, WithActionSpaceMixin, WithStateMixin, Action, EntityInfo
 from frankenstein.lib.trading.protocols import IDataProvider
 
 
@@ -12,9 +12,9 @@ class Broker(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
 
         self.action_space.register_actions(
             [
-                Action('open', "Opens a position", self.open),
-                Action('hold', "Holds the position", self.hold),
-                Action('close', "Closes the position", self.close)
+                Action('open', "Opens a position", self.open, self.info()),
+                Action('hold', "Holds the position", self.hold, self.info()),
+                Action('close', "Closes the position", self.close, self.info())
             ]
         )
 
@@ -98,3 +98,12 @@ class Broker(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
             position['is_open'] = False
         self._balance = self._equity
         self.state.set_item('positions', self._positions)
+        
+    
+    def info(self) -> EntityInfo:
+        return EntityInfo(
+            name=self.__class__.__name__,
+            version="0.1.0",
+            params={}
+        )
+        

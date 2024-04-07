@@ -2,13 +2,13 @@ from typing import Any, Tuple
 from datetime import datetime
 import numpy as np
 
-from agentopy import WithActionSpaceMixin, ActionResult, SharedStateKeys, IAgent, IAgentComponent, WithStateMixin, EntityInfo, Action
+from agentopy import WithActionSpaceMixin, ActionResult, SharedStateKeys, IAgent, IAgentComponent, EntityInfo, Action, IState
 
 from frankenstein.lib.language.protocols import IEmbeddingModel
 from frankenstein.lib.db.protocols import IVectorDB
 
 
-class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
+class Memory(WithActionSpaceMixin, IAgentComponent):
     """Implements a memory component"""
 
     def __init__(self, db: IVectorDB, embedding_model: IEmbeddingModel, memory_size: int = 3) -> None:
@@ -20,7 +20,7 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
         self.embedding_model: IEmbeddingModel = embedding_model
         
         self.action_space.register_actions([
-            Action("recall", "Recall memories about given topic", self.recall)
+            Action("recall", "Recall memories about given topic", self.recall, self.info())
         ])
 
     async def on_agent_heartbeat(self, agent: IAgent) -> None:
@@ -98,7 +98,7 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
 
         return key, idx
     
-    async def recall(self, topic: str) -> ActionResult:
+    async def recall(self, *, topic: str, caller_context: IState) -> ActionResult:
         """Recalls memories about the given topic"""
         key: np.ndarray = await self._embed(topic)
 
@@ -125,4 +125,4 @@ class Memory(WithActionSpaceMixin, WithStateMixin, IAgentComponent):
 
     def info(self) -> EntityInfo:
         """Returns the component info"""
-        return EntityInfo(name="Memory", version="0.1.0", params={"memory_size": self.memory_size})
+        return EntityInfo(name=self.__class__.__name__, version="0.1.0", params={"memory_size": self.memory_size})

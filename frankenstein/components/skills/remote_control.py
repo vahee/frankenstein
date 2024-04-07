@@ -3,14 +3,14 @@ import logging
 import asyncio as aio
 import time
 
-from agentopy import WithStateMixin, WithActionSpaceMixin, IAgentComponent, IAgent, IAction, IState, EntityInfo
+from agentopy import WithActionSpaceMixin, IAgentComponent, IAgent, IAction, IState, EntityInfo
 
 from frankenstein.lib.networking.communication import IMessaging
 
 logger = logging.getLogger('[Component][RemoteControl]')
 
 
-class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
+class RemoteControl(WithActionSpaceMixin, IAgentComponent):
     """Implements a remote control component that allows to control the agent remotely."""
 
     def __init__(self, messaging: IMessaging, subscription_update_rate_ms: int = 1000):
@@ -78,7 +78,6 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
     async def get_agent_state(self, agent: IAgent, _data: Optional[Dict[str, Any]]) -> None:
         """Sends the agent's state to the user"""
         state = self.construct_state(agent.state)
-
         await self._messaging.send_message({"command": "get_agent_state", "data": state})
 
     def construct_state(self, state: IState) -> Dict[str, Any]:
@@ -90,7 +89,7 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
             for key, value in state.items().items():
                 if isinstance(value, IAction):
                     value = value.name()
-
+                
                 nested_keys = key.split('/')
                 branch = result
                 for i in range(len(nested_keys) - 1):
@@ -98,7 +97,9 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
                         branch[nested_keys[i]] = {}
                     branch = branch[nested_keys[i]]
 
+
                 branch[nested_keys[-1]] = value
+                
         except Exception as e:
             logger.error(
                 f"Error constructing state: {e}. This may be due to a non-serializable object in the state or if keyare not nestable by /")
@@ -125,7 +126,7 @@ class RemoteControl(WithStateMixin, WithActionSpaceMixin, IAgentComponent):
 
     def info(self) -> EntityInfo:
         return EntityInfo(
-            name="RemoteControl",
+            name=self.__class__.__name__,
             version="0.1.0",
             params={
                 "address": self._messaging.address()
