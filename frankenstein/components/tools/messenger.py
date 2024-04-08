@@ -2,7 +2,7 @@ from typing import Any, Dict
 import time
 import logging
 from agentopy import WithActionSpaceMixin, Action, ActionResult, IEnvironmentComponent, EntityInfo, State, IState
-
+import asyncio as aio
 logger = logging.getLogger(__name__)
 
 class Messenger(WithActionSpaceMixin, IEnvironmentComponent):
@@ -53,7 +53,7 @@ class Messenger(WithActionSpaceMixin, IEnvironmentComponent):
         return ActionResult(value=self._messages, success=True)
 
     async def tick(self) -> None:
-        ...
+        await aio.sleep(10)
             
     async def observe(self, caller_context: IState) -> State:
         

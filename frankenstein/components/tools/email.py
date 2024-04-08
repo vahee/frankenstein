@@ -4,7 +4,7 @@ import logging
 from os import linesep
 import smtplib
 from imap_tools import MailBox, BaseMailBox, OR, AND
-
+import asyncio as aio
 from agentopy import Action, ActionResult, IEnvironmentComponent, WithActionSpaceMixin, EntityInfo, State, IState
 
 logger = logging.getLogger('[Component][Email]')
@@ -132,7 +132,7 @@ class Email(WithActionSpaceMixin, IEnvironmentComponent):
         return state
     
     async def tick(self) -> None:
-        ...
+        await aio.sleep(10)
 
     def info(self) -> EntityInfo:
         return EntityInfo(

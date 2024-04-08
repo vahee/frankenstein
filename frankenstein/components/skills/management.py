@@ -85,8 +85,13 @@ class Management(WithActionSpaceMixin, IAgentComponent):
     async def launch(self, *, config_str: str, caller_context: IState) -> ActionResult:
         """launches an agent or environment"""
         
-        config = yaml.safe_load(config_str)
+        await self.start_tasks(config_str=config_str)
         
+        return ActionResult(value="OK", success=True)
+    
+    async def start_tasks(self, *, config_str: str) -> List[aio.Task]:
+        config = yaml.safe_load(config_str)
+        all_tasks = []
         import traceback
         
         def print_result(task):
@@ -97,11 +102,14 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         for environment_config in config.get("environments", []):
             env = self.create_environment(environment_config)
             env_id = environment_config.get("id")
-            task = aio.create_task(aio.wait(env.start(), return_when=aio.FIRST_EXCEPTION))
+            env_tasks = env.start()
+            all_tasks.extend(env_tasks)
+            task = aio.create_task(aio.wait(env_tasks, return_when=aio.FIRST_EXCEPTION))
             task.add_done_callback(print_result)
             
             self._environments[env_id] = {
                 'process': task,
+                'env_tasks': env_tasks,
                 'config': environment_config,
                 'env': env
             }
@@ -110,16 +118,19 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             agent = self.create_agent(agent_config)
             agent_id = str(self._next_agent_id)
             self._next_agent_id += 1
-            task = aio.create_task(aio.wait(agent.start(), return_when=aio.FIRST_EXCEPTION))
+            agent_tasks = agent.start()
+            all_tasks.extend(agent_tasks)
+            task = aio.create_task(aio.wait(agent_tasks, return_when=aio.FIRST_EXCEPTION))
             task.add_done_callback(print_result)
             
             self._agents[agent_id] = {
                 'process': task,
+                'agent_tasks': agent_tasks,
                 'config': agent_config,
                 'agent': agent
             }
-        
-        return ActionResult(value="OK", success=True)
+            
+        return all_tasks
     
     async def kill_agent(self, *, agent_id: str, caller_context: IState) -> ActionResult:
         """Creates text content"""
@@ -127,10 +138,13 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             return ActionResult(value="No such agent", success=False)
         try:
             self._agents[agent_id]['process'].cancel()
+            for task in self._agents[agent_id]['agent_tasks']:
+                task.cancel()
         except:
             pass
         del self._agents[agent_id]['agent']
         del self._agents[agent_id]['process']
+        del self._agents[agent_id]['agent_tasks']
         del self._agents[agent_id]
         
         return ActionResult(value="Agent killed", success=True)
@@ -141,10 +155,13 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             return ActionResult(value="No such environment", success=False)
         try:
             self._environments[environment_id]['process'].cancel()
+            for task in self._environments[environment_id]['env_tasks']:
+                task.cancel()
         except:
             pass
         del self._environments[environment_id]['env']
         del self._environments[environment_id]['process']
+        del self._environments[environment_id]['env_tasks']
         del self._environments[environment_id]
         
         return ActionResult(value="Environment killed", success=True)
@@ -204,7 +221,7 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             return Management()
         if component_name == "Memory":
             assert component_config.get("embedding_model") is not None, "Embedding model is not set"
-            embedding_model = self.create_embegging_model(component_config["embedding_model"])
+            embedding_model = self.create_embedding_model(component_config["embedding_model"])
             assert component_config.get("db", {}).get("implementation") in ["in_memory_vector_db"], "DB is not set or not supported"
             if component_config["db"]["implementation"] == "in_memory_vector_db":
                 db = InMemoryVectorDB(embedding_model.dim(), component_config["db"]["params"]["affinity"])
@@ -270,7 +287,7 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         raise Exception("Language model is not set or not supported")
             
 
-    def create_embegging_model(self, config: Dict):
+    def create_embedding_model(self, config: Dict):
         """
         Returns the embeddings model based on the configuration
         """

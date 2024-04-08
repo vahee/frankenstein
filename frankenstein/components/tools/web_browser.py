@@ -4,7 +4,7 @@ import json
 import requests
 from duckduckgo_search import DDGS
 from bs4 import BeautifulSoup
-
+import asyncio as aio
 from agentopy import ActionResult, WithActionSpaceMixin, Action, IEnvironmentComponent, EntityInfo, State, IState
 from frankenstein.lib.language.protocols import ILanguageModel
 
@@ -148,7 +148,7 @@ class WebBrowser(WithActionSpaceMixin, IEnvironmentComponent):
         return findings
 
     async def tick(self) -> None:
-        ...
+        await aio.sleep(10)
         
     async def observe(self, caller_context: IState) -> State:
         state = State()

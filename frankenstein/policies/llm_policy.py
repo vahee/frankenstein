@@ -103,8 +103,10 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
 
     def _format_input(self, state: IState) -> str:
         result = []
+        
         for key, value in state.items().items():
-            result.append(self._format_item(key, value))
+            if key.startswith("agent/components") or key.startswith("environment/components"):
+                result.append(self._format_item(key, value))
 
         return linesep.join(result)
 

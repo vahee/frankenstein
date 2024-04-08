@@ -24,13 +24,11 @@ def load_config_from_yaml() -> str:
 async def run(yml_str: str):
     management = Management()
     try:
-        await management.launch(config_str=yml_str, caller_context=State())
+        tasks = await management.start_tasks(config_str=yml_str)
+        await aio.wait(tasks, return_when=aio.FIRST_EXCEPTION)
     except Exception as e:
         print(e)
         sys.exit()
-    while True:
-        await aio.sleep(1)
-    
 
 if __name__ == "__main__":
     aio.run(run(load_config_from_yaml()))

@@ -1,6 +1,6 @@
 from typing import List
 from os import linesep
-
+import asyncio as aio
 from agentopy import WithActionSpaceMixin, Action, ActionResult, IEnvironmentComponent, EntityInfo, State, IState
 
 
@@ -54,7 +54,7 @@ class TodoList(WithActionSpaceMixin, IEnvironmentComponent):
         return ActionResult(value=linesep.join(self._list), success=True)
 
     async def tick(self) -> None:
-        ...
+        await aio.sleep(10)
         
     async def observe(self, caller_context: IState) -> State:
         state = State()
