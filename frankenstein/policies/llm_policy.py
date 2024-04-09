@@ -105,7 +105,7 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
         result = []
         
         for key, value in state.items().items():
-            if key.startswith("agent/components") or key.startswith("environment/components"):
+            if (key.startswith("agent/components") or key.startswith("environment/components")) and not key.endswith("__"):
                 result.append(self._format_item(key, value))
 
         return linesep.join(result)

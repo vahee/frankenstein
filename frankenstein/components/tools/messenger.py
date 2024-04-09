@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 import time
 import logging
 from agentopy import WithActionSpaceMixin, Action, ActionResult, IEnvironmentComponent, EntityInfo, State, IState
@@ -11,8 +11,7 @@ class Messenger(WithActionSpaceMixin, IEnvironmentComponent):
     def __init__(self):
         super().__init__()
         
-        self._num_read_messages: Dict[str, int] = {}
-        self._messages = []
+        self._messages = {}
         
         self.action_space.register_actions([
             Action(
@@ -31,11 +30,14 @@ class Messenger(WithActionSpaceMixin, IEnvironmentComponent):
             "data": {
                 "from": login,
                 "ts": time.time(),
-                "data": message    
+                "data": message
             }
         }
         
-        self._messages.append(msg["data"])
+        for user_login, messages in self._messages.items():
+            m = msg.copy()
+            m["read"] = user_login == login
+            messages.append(m)
         
         return ActionResult(value="OK", success=True)
 
@@ -43,14 +45,21 @@ class Messenger(WithActionSpaceMixin, IEnvironmentComponent):
         """Gets unread messages. This is a blocking operation."""
         assert caller_context is not None, "Caller context is required"
         login = caller_context.get_item("login")
-        num_read_messages = self._num_read_messages.get(login, 0)
-        new_messages = self._messages[num_read_messages:]
-        self._num_read_messages[login] = len(self._messages)
-        return ActionResult(value={f"Message {i}": msg.get("data") for i, msg in enumerate(new_messages)}, success=True)
+        
+        new_messages = [ msg for msg in self._messages.get(login, []) if not msg.get("read") ]
+        
+        # mark messages as read
+        for msg in new_messages:
+            msg["read"] = True
+        
+        return ActionResult(value=new_messages, success=True)
         
     async def get_message_history(self, *, caller_context: IState) -> ActionResult:
         """Gets the message history. This is a blocking operation."""
-        return ActionResult(value=self._messages, success=True)
+        
+        login = caller_context.get_item("login")
+        
+        return ActionResult(value=self._messages.get(login, []), success=True)
 
     async def tick(self) -> None:
         await aio.sleep(10)
@@ -61,10 +70,21 @@ class Messenger(WithActionSpaceMixin, IEnvironmentComponent):
         
         login = caller_context.get_item("login")
         
-        num_new_messages = len(self._messages) - self._num_read_messages.get(login, 0)
+        if login and login not in self._messages:
+            self._messages[login] = []
+        
+        # count new messages
+        num_new_messages = len([ msg for msg in self._messages.get(login, []) if not msg.get("read") ])
+        
+        for msg in self._messages[login]:
+            msg["read"] = True
         
         state = State()
-        state.set_item("status", {"num_new_messages": num_new_messages})
+        data = {
+            "num_new_messages": num_new_messages,
+            "messages__": self._messages.get(login, [])
+        }
+        state.set_item("status", data)
         
         return state
         
