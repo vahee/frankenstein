@@ -37,7 +37,7 @@ class Creativity(WithActionSpaceMixin, IAgentComponent):
         return ActionResult(value=lm_response, success=True)
 
     async def on_agent_heartbeat(self, agent: IAgent) -> None:
-        agent.state.set_item(f"agent/components/{self.info().name}/status", "Creativity is active.")
+        agent.state.set_item(f"agent.components.{self.info().name}.status", "Creativity is active.")
     
     async def tick(self) -> None:
         ...

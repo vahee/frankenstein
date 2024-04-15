@@ -1,28 +1,24 @@
-from typing import Tuple, Dict, Any, Callable, Optional
+from typing import Tuple, Dict, Any, Callable, Optional, List
 from datetime import datetime
 from os import linesep
 import orjson
 
-from agentopy import IState, IAction, IPolicy, WithActionSpaceMixin, Action, ActionResult, EntityInfo, SharedStateKeys, IState
+from agentopy import IState, IAction, IPolicy, WithActionSpaceMixin, Action, ActionResult, EntityInfo, SharedStateKeys
 
 from frankenstein.lib.language.protocols import ILanguageModel
-
 
 class LLMPolicy(WithActionSpaceMixin, IPolicy):
     """Implements a policy that uses a language model to generate actions"""
 
     def __init__(self,
                  language_model: ILanguageModel,
-                 system_prompt: str,
-                 response_template: str,
                  response_parser: Optional[Callable[[
                      Dict[str, Any]], Tuple[str, Dict[str, Any], Dict[str, Any]]]] = None,
                  wait_timeout_s: int = 300
                  ) -> None:
         super().__init__()
         self._language_model: ILanguageModel = language_model
-        self._system_prompt: str = system_prompt
-        self._response_template: str = response_template
+        self._principles = []
         self._response_parser: Callable[[
             Dict[str, Any]], Tuple[str, Dict[str, Any], Dict[str, Any]]] = response_parser or self._default_response_parser
 
@@ -32,6 +28,8 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
         self.action_space.register_actions([
             Action(
                 "wait", "use this action to wait for a change in environment", self._wait, self.info()),
+            Action("add_principle", "use this action to add a principle to your list of principles", self._add_principle, self.info()),
+            Action("remove_principle", "use this action to remove a principle from your list of principles", self._remove_principle, self.info())
         ])
 
     async def _wait(self, *, caller_context: IState) -> ActionResult:
@@ -43,6 +41,14 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
                 (datetime.now() - self._wait_start_ts).seconds
             return ActionResult(value=f"Waiting for another {wait_time_left_s} seconds.", success=False)
 
+    async def _add_principle(self, *, principle: str, caller_context: IState) -> ActionResult:
+        self._principles.append(principle)
+        return ActionResult(value=f"Added principle: {principle}", success=True)
+    
+    async def _remove_principle(self, *, principle: str, caller_context: IState) -> ActionResult:
+        self._principles.remove(principle)
+        return ActionResult(value=f"Removed principle: {principle}", success=True)
+    
     def _default_response_parser(self, response: Dict[str, Any]) -> Tuple[str, Dict[str, Any], Dict[str, Any]]:
         action = response.pop("action")
         args = response.pop("args")
@@ -61,11 +67,11 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
         """Generates an action based on the current state of the environment."""
-        action_name = state.get_item('agent/components/RemoteControl/force_action/name')
-        action_args = state.get_item('agent/components/RemoteControl/force_action/args')
+        action_name = state.get_item('agent.components.RemoteControl.force_action.name')
+        action_args = state.get_item('agent.components.RemoteControl.force_action.args')
         
-        state.remove_item('agent/components/RemoteControl/force_action/name')
-        state.remove_item('agent/components/RemoteControl/force_action/args')
+        state.remove_item('agent.components.RemoteControl.force_action.name')
+        state.remove_item('agent.components.RemoteControl.force_action.args')
         
         caller_context = state.slice_by_prefix(SharedStateKeys.AGENT_ACTION_CONTEXT)
         
@@ -77,7 +83,7 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
         if self._wait_start_ts is not None:
             # TODO: check if there is an actual change in the environment and stop waiting if there is
             messenger_status = state.get_item(
-                "environment/components/Messenger/status")
+                "environment.components.Messenger.status")
 
             if not messenger_status or not messenger_status.get("num_new_messages"):
                 wait_time_left_s = self._wait_timeout_s - \
@@ -105,7 +111,7 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
         result = []
         
         for key, value in state.items().items():
-            if (key.startswith("agent/components") or key.startswith("environment/components")) and not key.endswith("__"):
+            if ((key.startswith("agent.components") or key.startswith("environment.components"))) and not key.endswith("__"):
                 result.append(self._format_item(key, value))
 
         return linesep.join(result)
@@ -119,18 +125,20 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
             return f"""{key}: {', '.join(value)}{linesep}"""
             
         return f"""{key}: {linesep.join(
-                        [f"{k}: {v}" for k, v in value.items()])}{linesep}"""
-
-    def _create_language_model_query(self, query: str) -> str:
-        """Creates a query for the language model"""
-        return self._response_template.format(
-            query=query,
-            current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S, %A")
-        )
+                        [f"{k}: {v}" for k, v in value.items() if not k.endswith("__")])}{linesep}"""
 
     async def _query_language_model(self, query: str, state: IState) -> Dict[str, Any]:
         """Queries the language model with the specified query and returns the response as a dictionary"""
-        query = self._create_language_model_query(query)
+        
+        response_template = state.get_item("agent.response_template")
+        system_prompt = state.get_item("agent.system_prompt")
+        initial_principles = state.get_item("agent.principles")
+        
+        query = response_template.format(
+            query=query,
+            current_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S, %A")
+        )
+        
         actions = self.action_space.all_actions()
         f = "{}: {}"
         
@@ -147,8 +155,11 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
             
         
         actions_str = linesep.join(actions_list)
-
-        response = await self._language_model.query(query, f"{self._system_prompt}{linesep}{actions_str}")
+        
+        initial_principles_str = linesep.join([f"- {p}" for p in initial_principles])
+        learned_principles_str = linesep.join([f"- {p}" for p in self._principles])
+        
+        response = await self._language_model.query(query, f"{system_prompt.format(initial_principles=initial_principles_str, learned_principles=learned_principles_str)}{linesep}{actions_str}")
         return await self._parse_response(response)
 
     async def _parse_response(self, json_text: str, retry_count: int = 3) -> Dict[str, Any]:
@@ -179,8 +190,7 @@ class LLMPolicy(WithActionSpaceMixin, IPolicy):
             name=self.__class__.__name__,
             version="0.1.0",
             params={
-                "system_prompt": self._system_prompt,
-                "response_template": self._response_template,
+                "learned_principles": self._principles,
                 "wait_timeout_s": self._wait_timeout_s,
                 "actions": [
                     {

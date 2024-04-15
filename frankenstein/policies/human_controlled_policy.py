@@ -19,11 +19,11 @@ class HumanControlledPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
 
-        action_name = state.get_item('agent/components/RemoteControl/force_action/name')
-        action_args = state.get_item('agent/components/RemoteControl/force_action/args')
+        action_name = state.get_item('agent.components.RemoteControl.force_action.name')
+        action_args = state.get_item('agent.components.RemoteControl.force_action.args')
         
-        state.remove_item('agent/components/RemoteControl/force_action/name')
-        state.remove_item('agent/components/RemoteControl/force_action/args')
+        state.remove_item('agent.components.RemoteControl.force_action.name')
+        state.remove_item('agent.components.RemoteControl.force_action.args')
         
         caller_context = state.slice_by_prefix(SharedStateKeys.AGENT_ACTION_CONTEXT)
         

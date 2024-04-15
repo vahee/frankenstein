@@ -18,13 +18,13 @@ class TradingPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
 
-        signal: Signal = state.get_item('bands/signal')
+        signal: Signal = state.get_item('bands.signal')
         
         tp_pips = signal.tp_pips if signal.tp_pips is not None else self._tp
         sl_pips = signal.sl_pips if signal.sl_pips is not None else self._sl
 
         existing_positions = state.get_item(
-            'broker/positions').get(self._symbol, None)
+            'broker.positions').get(self._symbol, None)
 
         if existing_positions is not None and existing_positions['is_open']:
             if signal.direction <= -self._close_threshold:
@@ -46,7 +46,7 @@ class TradingPolicy(WithActionSpaceMixin, IPolicy):
 
                 return self.action_space.get_action('open'), {
                     'symbol': self._symbol,
-                    'price': state.get_item('broker/ask'),
+                    'price': state.get_item('broker.ask'),
                     'volume': self._lot_size,
                     'is_long': True,
                     'take_profit_pips': tp_pips,
@@ -59,7 +59,7 @@ class TradingPolicy(WithActionSpaceMixin, IPolicy):
 
                 return self.action_space.get_action('open'), {
                     'symbol': self._symbol,
-                    'price': state.get_item('broker/bid'),
+                    'price': state.get_item('broker.bid'),
                     'volume': self._lot_size,
                     'is_long': False,
                     'take_profit_pips': tp_pips,

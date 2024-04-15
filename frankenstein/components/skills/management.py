@@ -1,8 +1,6 @@
 import sys
 import logging
-import traceback
 import asyncio as aio
-from multiprocessing import Process
 from typing import Dict, List
 import yaml
 
@@ -258,13 +256,8 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         if policy_name == "LLMPolicy":
             params = config["policy"].get("params", {})
             assert params.get("language_model") is not None, "Language model is not set"
-            system_prompt = params.get("system_prompt")
-            assert system_prompt is not None, "System prompt is not set"
-            response_template = params.get("response_template")
             policy = LLMPolicy(
-                self.create_language_model(params["language_model"]),
-                system_prompt,
-                response_template
+                self.create_language_model(params["language_model"]),                
             )
             return policy
         if policy_name == "HumanControlledPolicy":
@@ -322,9 +315,9 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         for environment_id in environments_to_remove:
             await self.destroy_environment(environment_id=environment_id, caller_context=State())
         
-        agent.state.set_item(f"agent/components/{self.info().name}/status", "Management skills ready.")
-        agent.state.set_item(f"agent/components/{self.info().name}/agents", (await self.agents(caller_context=State())).value)
-        agent.state.set_item(f"agent/components/{self.info().name}/environments", (await self.environments(caller_context=State())).value)
+        agent.state.set_item(f"agent.components.{self.info().name}.status", "Management skills ready.")
+        agent.state.set_item(f"agent.components.{self.info().name}.agents", (await self.agents(caller_context=State())).value)
+        agent.state.set_item(f"agent.components.{self.info().name}.environments", (await self.environments(caller_context=State())).value)
     
     async def tick(self) -> None:
         ...

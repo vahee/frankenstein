@@ -90,7 +90,7 @@ class RemoteControl(WithActionSpaceMixin, IAgentComponent):
                 if isinstance(value, IAction):
                     value = value.name()
                 
-                nested_keys = key.split('/')
+                nested_keys = key.split('.')
                 branch = result
                 for i in range(len(nested_keys) - 1):
                     if nested_keys[i] not in branch:
@@ -102,7 +102,7 @@ class RemoteControl(WithActionSpaceMixin, IAgentComponent):
                 
         except Exception as e:
             logger.error(
-                f"Error constructing state: {e}. This may be due to a non-serializable object in the state or if keyare not nestable by /")
+                f"Error constructing state: {e}. This may be due to a non-serializable object in the state or if keyare not nestable by .")
 
         return result
 
@@ -117,9 +117,9 @@ class RemoteControl(WithActionSpaceMixin, IAgentComponent):
 
         if name is not None:
             agent.state.set_item(
-                f"agent/components/{self.info().name}/force_action/name", name)
+                f"agent.components.{self.info().name}.force_action.name", name)
             agent.state.set_item(
-                f"agent/components/{self.info().name}/force_action/args", args)
+                f"agent.components.{self.info().name}.force_action.args", args)
 
     async def authenticate(self, agent: IAgent, data: Dict) -> None:
         """Authenticates the user"""
