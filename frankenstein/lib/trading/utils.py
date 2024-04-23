@@ -5,7 +5,7 @@ import re
 import torch.nn.functional as F
 from datetime import timedelta
 from math import pi
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Tuple, Union, Any
 import pandas as pd
 from bokeh.plotting import figure, show
 
@@ -65,7 +65,7 @@ def load_mt5_ticks_csv(filename: str):
     df = pd.concat([timestamps, ask, bid, volume], axis=1)
     df.columns = ['timestamp', 'ask', 'bid', 'volume']
     df.ffill(inplace=True)
-    df['timestamp'] = pd.to_datetime(df.timestamp)
+    df['timestamp'] = pd.to_datetime(df.timestamp, utc=True)
         
     df['index'] = df.timestamp.dt.floor('1s')
     df.set_index('index', inplace=True)
@@ -123,8 +123,7 @@ def plot_candlesticks(df: pd.DataFrame, p: figure, timeframe: str = 'M1'):
     p.vbar(df.index[dec], w, df.open[dec], df.close[dec], fill_color="#FF0000", line_color="black")
 
 
-def plot(df: pd.DataFrame, charts: List[Callable], tools="pan,wheel_zoom,box_zoom,reset", x_axis_type="datetime") -> Union[Tuple[
-                                                                                                      Union[CommsHandle, None], figure], None]:
+def plot(df: pd.DataFrame, charts: List[Callable], tools="pan,wheel_zoom,box_zoom,reset", x_axis_type="datetime") -> Union[Tuple[Any, figure], None]:
     if not charts:
         return
     p = figure(title="Plot", width=800, tools=tools, x_axis_label="Timestamp", y_axis_label="Price",

@@ -3,15 +3,21 @@ import logging
 import asyncio as aio
 from typing import Dict, List
 import yaml
+from datetime import timedelta
 
-from agentopy import IAgentComponent, WithActionSpaceMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult, IState, State
+from agentopy import IAgentComponent, IEnvironmentComponent, WithActionSpaceMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult, IState, State
 
 from frankenstein.lib.language.openai_language_models import OpenAIChatModel
 from frankenstein.lib.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
+from frankenstein.lib.trading.utils import load_mt5_ticks_csv
 from frankenstein.policies.llm_policy import LLMPolicy
 from frankenstein.policies.human_controlled_policy import HumanControlledPolicy
+from frankenstein.policies.trading_policy import TradingPolicy
 from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
 from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
+from frankenstein.components.services.trading.data_provider import DataProvider
+from frankenstein.components.services.trading.bands_signal_provider import BandsSignalProvider
+from frankenstein.components.services.trading.broker import Broker
 from frankenstein.lib.networking.communication import WebsocketMessagingJsonServer
 from frankenstein.lib.language.protocols import ILanguageModel
 
@@ -169,7 +175,7 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         environment_components = []
         
         for component_name, component_config in config.get("components", {}).items():
-            environment_components.append(self.create_component(component_name, component_config))
+            environment_components.append(self.create_component(component_name, component_config, environment_components=environment_components))
 
         env = Environment(environment_components)
 
@@ -180,7 +186,7 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         agent_components = []
         
         for component_name, component_config in config.get("components", {}).items():
-            agent_components.append(self.create_component(component_name, component_config))
+            agent_components.append(self.create_component(component_name, component_config, agent_components=agent_components))
         
         policy = self.create_policy(config)
         
@@ -200,10 +206,11 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         return agent
         
 
-    def create_component(self, component_name: str, component_config: Dict):
+    def create_component(self, component_name: str, component_config: Dict, agent_components: List[IAgentComponent] = [], environment_components: List[IEnvironmentComponent] = []):
         """
         Creates a component based on the configuration
         """
+        
         if component_name == "TodoList":
             return TodoList()
         if component_name == "Creativity":
@@ -248,6 +255,58 @@ class Management(WithActionSpaceMixin, IAgentComponent):
                     raise Exception(f"Failed to create messaging server: {e}")
             subscription_update_rate_ms = component_config.get("subscription_update_rate_ms", 1000)
             return RemoteControl(messaging, subscription_update_rate_ms=subscription_update_rate_ms)
+        
+        if component_name == "DataProvider":
+            filename = component_config.get("params", {}).get("filename")
+            assert filename is not None, "Dataset file is not set"
+            df = load_mt5_ticks_csv(filename)
+            
+            symbol = component_config.get("params", {}).get("symbol")
+            assert symbol is not None, "Symbol is not set"
+            
+            start, end = df['timestamp'].iloc[0], df['timestamp'].iloc[-1]
+            
+            frequency = component_config.get("params", {}).get("frequency")
+            assert frequency is not None, "Frequency is not set"
+            freq = timedelta(seconds=frequency)
+
+            start = start.replace(microsecond=0)
+            end = end.replace(microsecond=0)
+
+            if freq >= timedelta(minutes=1):
+                start = start.replace(second=0)
+                end = end.replace(second=0)
+            if freq >= timedelta(hours=1):
+                start = start.replace(minute=0)
+                end = end.replace(minute=0)
+            if freq >= timedelta(days=1):
+                start = start.replace(hour=0)
+                end = end.replace(hour=0)
+
+            data_provider = DataProvider(time_range=(start, end, freq))
+            data_provider.load_ticks_dataframe(df, symbol)
+            return data_provider
+        
+        if component_name == "BandsSignalProvider":
+            data_provider = [c for c in environment_components if isinstance(c, DataProvider)]
+            data_provider = data_provider[0] if len(data_provider) > 0 else None
+            assert data_provider is not None, "Data provider is not set"
+            symbol = component_config.get("params", {}).get("symbol")
+            assert symbol is not None, "Symbol is not set"
+            bands_window = component_config.get("params", {}).get("bands_window")
+            assert bands_window is not None, "Bands window is not set"
+            bands_dev = component_config.get("params", {}).get("bands_dev")
+            assert bands_dev is not None, "Bands deviation is not set"
+            timeframe = component_config.get("params", {}).get("timeframe", "M1")
+            assert timeframe in ["M1", "M5", "M15", "M20", "H1", "D1"], "Timeframe is not set or not supported"
+            return BandsSignalProvider(data_provider, symbol, timeframe, bands_window, bands_dev)
+        
+        if component_name == "Broker":
+            data_provider = [c for c in environment_components if isinstance(c, DataProvider)]
+            data_provider = data_provider[0] if len(data_provider) > 0 else None
+            assert data_provider is not None, "Data provider is not set"
+            return Broker(data_provider)
+        
         raise Exception(f"Component {component_name} is not supported")
 
     def create_policy(self, config: Dict):
@@ -262,6 +321,8 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             return policy
         if policy_name == "HumanControlledPolicy":
             return HumanControlledPolicy()
+        if policy_name == "TradingPolicy":
+            return TradingPolicy()
         raise Exception("Policy is not set or not supported")
         
 

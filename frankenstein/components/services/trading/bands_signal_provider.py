@@ -1,12 +1,14 @@
 from datetime import timedelta
 from ta import volatility
+import asyncio as aio
 
-from agentopy import IEnvironmentComponent, WithStateMixin, WithActionSpaceMixin
+from agentopy import IEnvironmentComponent, IState, WithActionSpaceMixin, State, EntityInfo
 
 from frankenstein.lib.trading.schemas import Signal
 from frankenstein.lib.trading.protocols import IDataProvider
 
-class BandsSignalProvider(WithStateMixin, WithActionSpaceMixin, IEnvironmentComponent):
+
+class BandsSignalProvider(WithActionSpaceMixin, IEnvironmentComponent):
     def __init__(self, data_provider: IDataProvider, symbol: str, timeframe: str, bands_window: int, bands_dev: int) -> None:
         super().__init__()
         self._data_provider = data_provider
@@ -23,9 +25,9 @@ class BandsSignalProvider(WithStateMixin, WithActionSpaceMixin, IEnvironmentComp
             self.bars['close'], window=bands_window)
         
         self.bars_dict = self.bars.to_dict('index')
+        self._last_signal = Signal(self._data_provider.get_time(), 0, None, None, 'No signal', self.symbol)
 
-    async def on_tick(self) -> None:
-        
+    async def tick(self) -> None:
         try:
             timestamp = self._data_provider.get_time()
             assert timestamp is not None
@@ -35,14 +37,14 @@ class BandsSignalProvider(WithStateMixin, WithActionSpaceMixin, IEnvironmentComp
             lband = self.bars_dict[timestamp]['lband']
             mband = self.bars_dict[timestamp]['mband']
         except (AssertionError, KeyError):
-            self.state.set_item('signal', Signal(timestamp, 0, None, None, 'No signal', self.symbol))
+            self._last_signal = Signal(timestamp, 0, None, None, 'No signal', self.symbol)
             return
         
         
         direction = 0
         bid = self._data_provider.bid(self.symbol)
         if bid is None:
-            self.state.set_item('signal', Signal(timestamp, 0, None, None, 'No signal', self.symbol))
+            self._last_signal = Signal(timestamp, 0, None, None, 'No signal', self.symbol)
             return
         
         comment = 'Action'
@@ -60,5 +62,18 @@ class BandsSignalProvider(WithStateMixin, WithActionSpaceMixin, IEnvironmentComp
             direction += 50
             comment = f'Long, because bid < m, bid: {bid}, m: {mband}, m1_ts: {timestamp}'
         
+        self._last_signal = Signal(timestamp, direction, None, None, comment, self.symbol)
         
-        self.state.set_item('signal', Signal(timestamp, direction, None, None, comment, self.symbol))
+    
+    async def observe(self, caller_context: IState) -> IState:
+        state = State()
+        state.set_item('signal', self._last_signal)
+        return state
+    
+    def info(self) -> EntityInfo:
+        return EntityInfo(
+            'BandsSignalProvider', 
+            {
+                'symbol': self.symbol
+            }, 
+        '0.1.0')

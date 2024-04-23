@@ -1,16 +1,20 @@
 from datetime import datetime, timedelta, UTC
 from typing import Tuple, Optional, Literal
 from bisect import bisect_left
+import asyncio as aio
 import pandas as pd
 
-from agentopy import IEnvironmentComponent, WithStateMixin, WithActionSpaceMixin
+
+from agentopy import IEnvironmentComponent, WithActionSpaceMixin, IState, State, EntityInfo
 from frankenstein.lib.trading.protocols import IDataProvider
 from frankenstein.lib.trading.utils import aggregate_ticks
 
 
-class DataProvider(WithStateMixin, WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
+class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
     def __init__(self, *, time_range: Optional[Tuple[datetime, datetime, timedelta]]) -> None:
         super().__init__()
+        
+        self._time: datetime = datetime.now(UTC)
 
         if time_range is not None:
             start, end, freq = time_range
@@ -20,12 +24,9 @@ class DataProvider(WithStateMixin, WithActionSpaceMixin, IDataProvider, IEnviron
             assert isinstance(freq, timedelta), "time_range[2] must be timedelta"
             assert start < end, "time_range[0] must be less than time_range[1]"
             assert freq >= timedelta(seconds=1), "time_range[2] must be at least 1 second"
-                
-            self._start_time, self._end_time, self._time_freq = start, end, freq
             
-        else:
-            self.state.set_item('time', datetime.now(UTC))
-        
+            self._start_time, self._end_time, self._time_freq = start, end, freq
+            self._time = start
         self._cache = {}
         self._data = {}
         
@@ -38,7 +39,7 @@ class DataProvider(WithStateMixin, WithActionSpaceMixin, IDataProvider, IEnviron
         }
         
     def get_time(self) -> datetime:
-        return self.state.get_item('time')
+        return self._time
     
     def ask(self, symbol: str, timestamp: datetime | None = None) -> float:
         return self.price(symbol, 'ask', timestamp)
@@ -93,20 +94,34 @@ class DataProvider(WithStateMixin, WithActionSpaceMixin, IDataProvider, IEnviron
         return df
     
     def _next_time(self) -> Optional[datetime]:
-        if self.state.get_item('time') > self._end_time:
+        if self._time > self._end_time:
             return None
-        if self.state.get_item('time').weekday() in (5,6):
-            return self.state.get_item('time') + timedelta(days=1)
+        if self._time.weekday() in (5,6):
+            return self._time + timedelta(days=1)
         else:
-            return self.state.get_item('time') + self._time_freq
+            return self._time + self._time_freq
     
-    async def on_tick(self) -> None:
-        if self._time_freq is not None:
-            if self.state.get_item('time') is None:
-                self.state.set_item('time', self._start_time)
-            else:
-                self.state.set_item('time', self._next_time())
-        else:
-            self.state.set_item('time', datetime.now(UTC))
+    async def tick(self) -> None:
         
+        if self._time_freq is not None:
+            if self._time is None:
+                self._time = self._start_time
+            else:
+                self._time = self._next_time()
+        else:
+            self._time = datetime.now(UTC)
+    
+    async def observe(self, caller_context: IState) -> IState:
+        state = State()
+        
+        state.set_item('time', self._time)
+        
+        return state
+    
+    def info(self) -> EntityInfo:
+        return EntityInfo(
+            name=self.__class__.__name__, 
+            version="0.1.0", 
+            params={}
+        )
         
