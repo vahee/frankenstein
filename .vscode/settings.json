@@ -9,6 +9,6 @@
     "python.testing.pytestPath": "pytest",
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
-    "python.analysis.typeCheckingMode": "basic"
-
+    "python.analysis.typeCheckingMode": "basic",
+    "editor.inlineSuggest.enabled": true
 }

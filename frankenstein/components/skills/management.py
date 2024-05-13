@@ -3,7 +3,6 @@ import logging
 import asyncio as aio
 from typing import Dict, List
 import yaml
-from datetime import timedelta
 
 from agentopy import IAgentComponent, IEnvironmentComponent, WithActionSpaceMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult, IState, State
 
@@ -16,7 +15,8 @@ from frankenstein.policies.trading_policy import TradingPolicy
 from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
 from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
 from frankenstein.components.services.trading.data_provider import DataProvider
-from frankenstein.components.services.trading.bands_signal_provider import BandsSignalProvider
+from frankenstein.components.services.trading.signal_provider import SignalProvider
+from frankenstein.components.services.trading.config_provider import ConfigProvider
 from frankenstein.components.services.trading.broker import Broker
 from frankenstein.lib.networking.communication import WebsocketMessagingJsonServer
 from frankenstein.lib.language.protocols import ILanguageModel
@@ -106,7 +106,7 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         for environment_config in config.get("environments", []):
             env = self.create_environment(environment_config)
             env_id = environment_config.get("id")
-            env_tasks = env.start()
+            env_tasks = env.start(sync=environment_config.get("sync", False))
             all_tasks.extend(env_tasks)
             task = aio.create_task(aio.wait(env_tasks, return_when=aio.FIRST_EXCEPTION))
             task.add_done_callback(print_result)
@@ -266,40 +266,23 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             
             start, end = df['timestamp'].iloc[0], df['timestamp'].iloc[-1]
             
-            frequency = component_config.get("params", {}).get("frequency")
-            assert frequency is not None, "Frequency is not set"
-            freq = timedelta(seconds=frequency)
-
             start = start.replace(microsecond=0)
             end = end.replace(microsecond=0)
 
-            if freq >= timedelta(minutes=1):
-                start = start.replace(second=0)
-                end = end.replace(second=0)
-            if freq >= timedelta(hours=1):
-                start = start.replace(minute=0)
-                end = end.replace(minute=0)
-            if freq >= timedelta(days=1):
-                start = start.replace(hour=0)
-                end = end.replace(hour=0)
-
-            data_provider = DataProvider(time_range=(start, end, freq))
+            data_provider = DataProvider(time_range=(start, end))
             data_provider.load_ticks_dataframe(df, symbol)
             return data_provider
         
-        if component_name == "BandsSignalProvider":
+        if component_name == "SignalProvider":
             data_provider = [c for c in environment_components if isinstance(c, DataProvider)]
             data_provider = data_provider[0] if len(data_provider) > 0 else None
             assert data_provider is not None, "Data provider is not set"
             symbol = component_config.get("params", {}).get("symbol")
             assert symbol is not None, "Symbol is not set"
-            bands_window = component_config.get("params", {}).get("bands_window")
-            assert bands_window is not None, "Bands window is not set"
-            bands_dev = component_config.get("params", {}).get("bands_dev")
-            assert bands_dev is not None, "Bands deviation is not set"
-            timeframe = component_config.get("params", {}).get("timeframe", "M1")
-            assert timeframe in ["M1", "M5", "M15", "M20", "H1", "D1"], "Timeframe is not set or not supported"
-            return BandsSignalProvider(data_provider, symbol, timeframe, bands_window, bands_dev)
+            return SignalProvider(data_provider, symbol)
+        
+        if component_name == "ConfigProvider":
+            return ConfigProvider()
         
         if component_name == "Broker":
             data_provider = [c for c in environment_components if isinstance(c, DataProvider)]

@@ -2,6 +2,7 @@ import asyncio as aio
 import logging
 from typing import Dict, Any, List
 from websockets.server import serve
+from datetime import datetime, timedelta
 from websockets import ConnectionClosed, WebSocketServerProtocol
 from orjson import loads, dumps, JSONDecodeError, JSONEncodeError
 
@@ -11,7 +12,11 @@ logger = logging.getLogger('Communication')
 
 
 def default(obj: Any) -> Any:
-    if hasattr(obj,'__dict__'):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, timedelta):
+        return obj.total_seconds()  
+    elif hasattr(obj,'__dict__'):
         return obj.__dict__()
     else:
         return obj
@@ -41,7 +46,7 @@ class WebsocketMessagingJsonServer(IMessaging):
             try:
                 message = dumps(message, default=default).decode()
             except JSONEncodeError as e:
-                logger.error(f"Invalid message: {e}")
+                logger.error(f"Invalid message: {e}, message: {message}")
                 return
             await self._connection.send(message)
         except ConnectionClosed as e:

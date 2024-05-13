@@ -1,34 +1,47 @@
 from datetime import datetime, timedelta, UTC
 from typing import Tuple, Optional, Literal
 from bisect import bisect_left
-import asyncio as aio
 import pandas as pd
 
 
-from agentopy import IEnvironmentComponent, WithActionSpaceMixin, IState, State, EntityInfo
+from agentopy import IEnvironmentComponent, WithActionSpaceMixin, IState, State, EntityInfo, Action, ActionResult
 from frankenstein.lib.trading.protocols import IDataProvider
 from frankenstein.lib.trading.utils import aggregate_ticks
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
-    def __init__(self, *, time_range: Optional[Tuple[datetime, datetime, timedelta]]) -> None:
+    def __init__(self, *, time_range: Optional[Tuple[datetime, datetime]]) -> None:
         super().__init__()
         
-        self._time: datetime = datetime.now(UTC)
-
+        self._time: datetime = None
+        self._live: bool = False
+        
         if time_range is not None:
-            start, end, freq = time_range
+            start, end = time_range
             
             assert isinstance(start, datetime), "time_range[0] must be datetime"
             assert isinstance(end, datetime), "time_range[1] must be datetime"
-            assert isinstance(freq, timedelta), "time_range[2] must be timedelta"
             assert start < end, "time_range[0] must be less than time_range[1]"
-            assert freq >= timedelta(seconds=1), "time_range[2] must be at least 1 second"
             
-            self._start_time, self._end_time, self._time_freq = start, end, freq
+            self._min_start_time, self._min_end_time = start, end
             self._time = start
+        
         self._cache = {}
         self._data = {}
+        self._time_freq_str = None
+        self._start_time, self._end_time, self._time_freq = None, None, None
+        
+        self.action_space.register_actions(
+            [
+                Action('data_provider_live', "start backtesting", self.live, self.info()),
+                Action('data_provider_replay', "Loads ticks data from dataframe", self.replay, self.info()),
+                Action('data_provider_stop', "stop backtesting", self.stop, self.info()),
+            ]
+        )
         
     def load_ticks_dataframe(self, df: pd.DataFrame, symbol: str):
         self._data[symbol] = {
@@ -37,8 +50,80 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
             'dict': df.to_dict('index'),
             'source': 'dataframe'
         }
+    
+    async def stop(self, caller_context: IState) -> ActionResult:
+        self._start_time = None
+        self._end_time = None
+        self._time_freq = None
         
+        return ActionResult(value="OK", success=True)
+    
+    async def live(self, *, is_live: bool, caller_context: IState) -> ActionResult:
+        self._live = is_live
+        return ActionResult(value="OK", success=True)
+    
+    async def replay(self, *, start: str, end: str, freq: str, caller_context: IState) -> ActionResult:
+        
+        timestep_to_freq = {
+            'Tick': timedelta(microseconds=0),
+            'S1': timedelta(seconds=1),
+            'M1': timedelta(minutes=1),
+            'M5': timedelta(minutes=5),
+            'M15': timedelta(minutes=15),
+            'M30': timedelta(minutes=30),
+            'H1': timedelta(hours=1),
+            'H4': timedelta(hours=4),
+            'D1': timedelta(days=1),
+        }
+        self._time_freq_str = freq
+        if freq not in timestep_to_freq:
+            return ActionResult(value=f"Invalid frequency {freq}", success=False)
+        
+        freq_td: timedelta = timestep_to_freq[freq]
+        
+        try:
+            start_dt = self._parse_dt(start)
+            end_dt = self._parse_dt(end)
+        except ValueError as e:
+            logger.error(e)
+            return ActionResult(value="Invalid date format", success=False)
+            
+        logger.info(f"Replaying data from {start_dt} to {end_dt} with frequency {freq}")
+        
+        self._start_time, self._end_time, self._time_freq = start_dt, end_dt, freq_td
+        self._time = start_dt
+        self._live = False
+        
+        if freq_td >= timedelta(minutes=1):
+            self._start_time = self._start_time.replace(second=0)
+            self._end_time = self._end_time.replace(second=0)
+        if freq_td >= timedelta(hours=1):
+            self._start_time = self._start_time.replace(minute=0)
+            self._end_time = self._end_time.replace(minute=0)
+        if freq_td >= timedelta(days=1):
+            self._start_time = self._start_time.replace(hour=0)
+            self._end_time = self._end_time.replace(hour=0)
+        
+        return ActionResult(value="OK", success=True)
+    
+    def _parse_dt(self, dt_str: str) -> datetime:
+        try:
+            return datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S.%f").replace(tzinfo=UTC)
+        except ValueError as e1:
+            logger.error(e1)
+            try:
+                return datetime.strptime(dt_str, "%Y-%m-%dT%H:%M:%S").replace(tzinfo=UTC)
+            except ValueError as e2:
+                logger.error(e2)
+                try:
+                    return datetime.strptime(dt_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59).replace(tzinfo=UTC)
+                except ValueError as e3:
+                    logger.error(e3)
+                    raise ValueError(f"Invalid date format {dt_str}")
+                
     def get_time(self) -> datetime:
+        if self._live:
+            return datetime.now(UTC)
         return self._time
     
     def ask(self, symbol: str, timestamp: datetime | None = None) -> float:
@@ -94,6 +179,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         return df
     
     def _next_time(self) -> Optional[datetime]:
+        
         if self._time > self._end_time:
             return None
         if self._time.weekday() in (5,6):
@@ -102,19 +188,20 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
             return self._time + self._time_freq
     
     async def tick(self) -> None:
-        
-        if self._time_freq is not None:
-            if self._time is None:
-                self._time = self._start_time
-            else:
-                self._time = self._next_time()
+        if self._time_freq is not None and self._time is not None:
+            self._time = self._next_time()
         else:
-            self._time = datetime.now(UTC)
+            self._time = None
     
     async def observe(self, caller_context: IState) -> IState:
         state = State()
         
-        state.set_item('time', self._time)
+        state.set_item('time', self._time.strftime("%Y-%m-%dT%H:%M:%S.000") if self._time is not None else None)
+        state.set_item('live', self._live)
+        state.set_item('is_on', (not self._live and self._time is not None) or self._live)
+        state.set_item('start_time', self._start_time.strftime("%Y-%m-%dT%H:%M:%S.000") if self._start_time is not None else None)
+        state.set_item('end_time', self._end_time.strftime("%Y-%m-%dT%H:%M:%S.000") if self._end_time is not None else None)
+        state.set_item('freq', self._time_freq_str)
         
         return state
     

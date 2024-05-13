@@ -1,9 +1,11 @@
 import argparse
+import logging
 from pathlib import Path
 import asyncio as aio
 import sys
 from frankenstein.components.skills.management import Management
-from agentopy import State
+
+logging.getLogger("agent").setLevel(logging.ERROR)
 
 def load_config_from_yaml() -> str:
     
