@@ -113,6 +113,8 @@ class SignalProvider(WithActionSpaceMixin, IEnvironmentComponent):
             
             
         direction += 100 - 2 * rsi
+        
+        direction /= 2
         comment = f'Because rsi: {rsi}, bar_ts: {timestamp}'
         
         self._last_signal = Signal(timestamp, direction, None, None, comment, self.symbol)
