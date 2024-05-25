@@ -10,8 +10,18 @@ logger = logging.getLogger(__name__)
 class TradingPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
+        state_items = state._data
+        action_name = state.get_item('agent.components.RemoteControl.force_action.name')
+        action_args = state.get_item('agent.components.RemoteControl.force_action.args')
+        
+        state.remove_item('agent.components.RemoteControl.force_action.name')
+        state.remove_item('agent.components.RemoteControl.force_action.args')
         
         caller_context = state.slice_by_prefix(SharedStateKeys.AGENT_ACTION_CONTEXT)
+        
+        if action_name:
+            action_args['caller_context'] = caller_context
+            return self.action_space.get_action(action_name), action_args, {}
         
         signal: Signal = state.get_item('environment.components.SignalProvider.signal')
         

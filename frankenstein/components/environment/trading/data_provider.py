@@ -6,7 +6,7 @@ import pandas as pd
 
 from agentopy import IEnvironmentComponent, WithActionSpaceMixin, IState, State, EntityInfo, Action, ActionResult
 from frankenstein.lib.trading.protocols import IDataProvider
-from frankenstein.lib.trading.utils import aggregate_ticks
+from frankenstein.lib.trading.utils import aggregate_prices
 
 import logging
 
@@ -43,12 +43,18 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
             ]
         )
         
-    def load_ticks_dataframe(self, df: pd.DataFrame, symbol: str):
+    def load_ticks_pd_dataframe(self, df: pd.DataFrame, symbol: str):
         self._data[symbol] = {
             'index': df.index.tolist(),
             'df': df,
             'dict': df.to_dict('index'),
-            'source': 'dataframe'
+            'source': 'pd.dataframe'
+        }
+    
+    def load_ticks_dt_dataframe(self, df: pd.DataFrame, symbol: str):
+        self._data[symbol] = {
+            'df': df,
+            'source': 'dt.dataframe'
         }
     
     async def stop(self, caller_context: IState) -> ActionResult:
@@ -69,7 +75,9 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
             'S1': timedelta(seconds=1),
             'M1': timedelta(minutes=1),
             'M5': timedelta(minutes=5),
+            'M10': timedelta(minutes=10),
             'M15': timedelta(minutes=15),
+            'M20': timedelta(minutes=20),
             'M30': timedelta(minutes=30),
             'H1': timedelta(hours=1),
             'H4': timedelta(hours=4),
@@ -140,7 +148,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         assert symbol in self._data, f"Symbol {symbol} not loaded"
         if timestamp is None:
             timestamp = self.get_time()
-        if self._data[symbol]['source'] == 'dataframe':
+        if self._data[symbol]['source'] == 'pd.dataframe':
             if timestamp in self._data[symbol]['dict']:
                 return self._data[symbol]['dict'][timestamp][price_type]
             else:
@@ -159,7 +167,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
     def ticks(self, symbol: str, timestamp: datetime | None, max_ticks: int | None = 1) -> pd.DataFrame:
         assert symbol in self._data, f"Symbol {symbol} not loaded"
         
-        if self._data[symbol]['source'] == 'dataframe':
+        if self._data[symbol]['source'] == 'pd.dataframe':
             if timestamp is None:
                 df = self._data[symbol]['df']
             else:
@@ -172,7 +180,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
     
     def bars(self, symbol: str, timeframe: str, timestamp: datetime | None = None, max_bars: int | None = None) -> pd.DataFrame:
         if (symbol, timeframe, timestamp) not in self._cache:
-            self._cache[(symbol, timeframe, timestamp)] = aggregate_ticks(self.ticks(symbol, timestamp, None), timeframe)
+            self._cache[(symbol, timeframe, timestamp)] = aggregate_prices(self.ticks(symbol, timestamp, None), timeframe)
         df = self._cache[(symbol, timeframe, timestamp)]
         if max_bars is not None:
             df = df.iloc[-max_bars:]

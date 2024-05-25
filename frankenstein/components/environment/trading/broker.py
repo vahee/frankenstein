@@ -70,7 +70,7 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
         self._last_ask = None
         self._last_bid = None
     
-    def set_params(self, balance: float = 10000, leverage: int = 30, point: float = 0.00001, lot_in_units: int = 100000) -> None:
+    def set_params(self, balance: float = 10000, leverage: int = 30, point: float = 1, lot_in_units: int = 1) -> None:
         self._balance = float(balance)
         self._leverage = float(leverage)
         self._point = float(point)

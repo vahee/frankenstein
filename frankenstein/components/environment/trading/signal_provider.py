@@ -79,7 +79,7 @@ class SignalProvider(WithActionSpaceMixin, IEnvironmentComponent):
             assert timestamp is not None
             assert self._prepared
             
-            timestamp = timestamp.replace(microsecond=0, second=0) - timedelta(minutes=1)
+            timestamp = timestamp.replace(microsecond=0, second=0)
             hband = self.bands_bars_dict[timestamp]['hband']
             lband = self.bands_bars_dict[timestamp]['lband']
             mband = self.bands_bars_dict[timestamp]['mband']

@@ -8,8 +8,8 @@ class ConfigProvider(WithActionSpaceMixin, IEnvironmentComponent):
         self._params = {
             'symbol': 'EURUSD',
             'lot_size': 0.1,
-            'open_threshold': 100,
-            'close_threshold': 50,
+            'open_threshold': 50,
+            'close_threshold': 30,
             'sl': 100,
             'tp': 300
         }

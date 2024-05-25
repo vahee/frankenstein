@@ -8,16 +8,22 @@ from agentopy import IAgentComponent, IEnvironmentComponent, WithActionSpaceMixi
 
 from frankenstein.lib.language.openai_language_models import OpenAIChatModel
 from frankenstein.lib.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
-from frankenstein.lib.trading.utils import load_mt5_ticks_csv
+from frankenstein.lib.trading.utils import load_mt5_ticks_csv, load_mt5_bars_csv
 from frankenstein.policies.llm_policy import LLMPolicy
 from frankenstein.policies.human_controlled_policy import HumanControlledPolicy
 from frankenstein.policies.trading_policy import TradingPolicy
 from frankenstein.lib.db.in_memory_vector_db import InMemoryVectorDB
-from frankenstein.components import TodoList, Creativity, Email, Memory, WebBrowser, Messenger, RemoteControl
-from frankenstein.components.services.trading.data_provider import DataProvider
-from frankenstein.components.services.trading.signal_provider import SignalProvider
-from frankenstein.components.services.trading.config_provider import ConfigProvider
-from frankenstein.components.services.trading.broker import Broker
+from frankenstein.components.environment.tools.email import Email
+from frankenstein.components.environment.tools.todo_list import TodoList
+from frankenstein.components.agent.creativity import Creativity
+from frankenstein.components.agent.memory import Memory
+from frankenstein.components.environment.tools.web_browser import WebBrowser
+from frankenstein.components.environment.tools.messenger import Messenger
+from frankenstein.components.agent.remote_control import RemoteControl
+from frankenstein.components.environment.trading.data_provider import DataProvider
+from frankenstein.components.environment.trading.signal_provider import SignalProvider
+from frankenstein.components.environment.trading.config_provider import ConfigProvider
+from frankenstein.components.environment.trading.broker import Broker
 from frankenstein.lib.networking.communication import WebsocketMessagingJsonServer
 from frankenstein.lib.language.protocols import ILanguageModel
 
@@ -259,18 +265,26 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         if component_name == "DataProvider":
             filename = component_config.get("params", {}).get("filename")
             assert filename is not None, "Dataset file is not set"
-            df = load_mt5_ticks_csv(filename)
-            
+            bars = component_config.get("params", {}).get("bars", False)
+            assert bars is not None, "Bars is not set"
+            if bars:
+                df = load_mt5_bars_csv(filename)
+            else:
+                df = load_mt5_ticks_csv(filename)
+            logger.info(f"Loaded {len(df)} rows from {filename}")
             symbol = component_config.get("params", {}).get("symbol")
             assert symbol is not None, "Symbol is not set"
             
-            start, end = df['timestamp'].iloc[0], df['timestamp'].iloc[-1]
+            try:
+                start, end = df['timestamp'].iloc[0], df['timestamp'].iloc[-1]
+            except:
+                start, end = df['timestamp'][0], df['timestamp'][-1]
             
             start = start.replace(microsecond=0)
             end = end.replace(microsecond=0)
 
             data_provider = DataProvider(time_range=(start, end))
-            data_provider.load_ticks_dataframe(df, symbol)
+            data_provider.load_ticks_pd_dataframe(df, symbol)
             return data_provider
         
         if component_name == "SignalProvider":

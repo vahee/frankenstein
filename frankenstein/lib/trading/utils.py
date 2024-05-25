@@ -7,6 +7,7 @@ from datetime import timedelta
 from math import pi
 from typing import Callable, List, Tuple, Union, Any
 import pandas as pd
+from datatable import f, dt
 from bokeh.plotting import figure, show
 
 
@@ -73,6 +74,37 @@ def load_mt5_ticks_csv(filename: str):
     
     return df
 
+def load_mt5_bars_csv(filename: str):
+    
+    df = pd.read_csv(filename, sep='\t', engine="pyarrow")
+    
+    df.rename(columns={
+        '<DATE>': 'date', 
+        '<TIME>': 'time',
+        '<OPEN>': 'open',
+        '<HIGH>': 'high',
+        '<LOW>': 'low',
+        '<CLOSE>': 'close',
+        '<TICKVOL>': 'volume',
+        '<SPREAD>': 'spread',
+    }, inplace=True)
+    
+    df['timestamp'] = pd.to_datetime(df.date.astype(str) + ' ' + df.time.astype(str), utc=True)
+    df['index'] = df['timestamp']
+    df.set_index('index', inplace=True)
+    
+    df['bid'] = df['close']
+    df['ask'] = df['close'] + 0.00001 * df['spread']
+    
+    df = df[['timestamp', 'ask', 'bid', 'volume']]
+    
+    return df
+
+def dt_load_mt5_bars_csv(filename: str):
+    
+    df = dt.Frame(load_mt5_bars_csv(filename))
+    
+    return df
 
 def _fn_timestamp_aggregate(timestamp: datetime, period: str = 'M15') -> datetime:
     if period == 'D1':
@@ -91,22 +123,28 @@ def _fn_timestamp_aggregate(timestamp: datetime, period: str = 'M15') -> datetim
         return timestamp.replace(minute=timestamp.minute - timestamp.minute % 30, second=0, microsecond=0)
     return timestamp
 
-def _to_candles(df: pd.DataFrame, period: str, apply_to = 'bid') -> pd.DataFrame:
-    grouped = _group(df, period)
-
-    result = pd.concat(
-        [grouped.timestamp.first(), grouped[apply_to].last(), grouped[apply_to].first(), grouped[apply_to].max(), grouped[apply_to].min(),
-            grouped.volume.sum()], axis=1)
-    result.columns = ['timestamp', 'close',
-                        'open', 'high', 'low', 'volume']
-    return result
-
 def _group(df: pd.DataFrame, period: str) -> 'pd.DataFrameGroupBy':
     df['timestamp'] = df.timestamp.apply(lambda t: _fn_timestamp_aggregate(t, period))
     return df.groupby('timestamp')
 
-def aggregate_ticks(df: pd.DataFrame, period: str) -> pd.DataFrame:
-    return _to_candles(df, period)
+def aggregate_prices(df: pd.DataFrame, period: str, price_col_open='bid', price_col_close='bid', price_col_low='bid', price_col_high='bid') -> pd.DataFrame:
+    
+    if price_col_open not in df.columns:
+        price_col_open = 'open'
+    if price_col_close not in df.columns:
+        price_col_close = 'close'
+    if price_col_low not in df.columns:
+        price_col_low = 'low'
+    if price_col_high not in df.columns:
+        price_col_high = 'high'
+    
+    grouped = _group(df, period)
+
+    result = pd.concat(
+        [grouped.timestamp.first(), grouped[price_col_open].first(), grouped[price_col_close].last(), grouped[price_col_low].min(), grouped[price_col_high].max(),
+            grouped.volume.sum()], axis=1)
+    result.columns = ['timestamp', 'open', 'close', 'low', 'high', 'volume']
+    return result
 
 
 def plot_candlesticks(df: pd.DataFrame, p: figure, timeframe: str = 'M1'):
