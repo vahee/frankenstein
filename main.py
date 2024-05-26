@@ -3,7 +3,7 @@ import logging
 from pathlib import Path
 import asyncio as aio
 import sys
-from frankenstein.components.skills.management import Management
+from frankenstein.components.agent.management import Management
 
 logging.getLogger("agent").setLevel(logging.ERROR)
 
