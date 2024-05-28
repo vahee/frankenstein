@@ -141,7 +141,7 @@ class TradingEnv(gym.Env):
     def _reward(self) -> float:
         if self._timestep is None:
             return 0
-        prev_position = self._last_n_observations[-2][1]
+        
         new_position = self._last_n_observations[-1][1]
         prev_price = self._last_n_observations[-2][0]
         new_price = self._last_n_observations[-1][0]
