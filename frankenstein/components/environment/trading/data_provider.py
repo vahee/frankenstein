@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
-    def __init__(self, *, time_range: Optional[Tuple[datetime, datetime]]) -> None:
+    def __init__(self, *, time_range: Optional[Tuple[datetime, datetime]] = None) -> None:
         super().__init__()
         
         self._time: datetime = None
@@ -68,8 +68,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         self._live = is_live
         return ActionResult(value="OK", success=True)
     
-    async def replay(self, *, start: str, end: str, freq: str, caller_context: IState) -> ActionResult:
-        
+    def reset(self, start: str, end: str, freq: str) -> None:
         timestep_to_freq = {
             'Tick': timedelta(microseconds=0),
             'S1': timedelta(seconds=1),
@@ -85,7 +84,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         }
         self._time_freq_str = freq
         if freq not in timestep_to_freq:
-            return ActionResult(value=f"Invalid frequency {freq}", success=False)
+            raise ValueError(f"Invalid frequency {freq}")
         
         freq_td: timedelta = timestep_to_freq[freq]
         
@@ -94,7 +93,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
             end_dt = self._parse_dt(end)
         except ValueError as e:
             logger.error(e)
-            return ActionResult(value="Invalid date format", success=False)
+            raise e
             
         logger.info(f"Replaying data from {start_dt} to {end_dt} with frequency {freq}")
         
@@ -111,6 +110,13 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         if freq_td >= timedelta(days=1):
             self._start_time = self._start_time.replace(hour=0)
             self._end_time = self._end_time.replace(hour=0)
+    
+    async def replay(self, *, start: str, end: str, freq: str, caller_context: IState) -> ActionResult:
+        
+        try:
+            self.reset(start, end, freq)
+        except ValueError as e:
+            return ActionResult(value=str(e), success=False)
         
         return ActionResult(value="OK", success=True)
     
@@ -186,7 +192,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
             df = df.iloc[-max_bars:]
         return df
     
-    def _next_time(self) -> Optional[datetime]:
+    def next_time(self) -> Optional[datetime]:
         
         if self._time > self._end_time:
             return None
@@ -195,11 +201,14 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         else:
             return self._time + self._time_freq
     
-    async def tick(self) -> None:
+    def step(self) -> None:
         if self._time_freq is not None and self._time is not None:
-            self._time = self._next_time()
+            self._time = self.next_time()
         else:
             self._time = None
+    
+    async def tick(self) -> None:
+        self.step()
     
     async def observe(self, caller_context: IState) -> IState:
         state = State()

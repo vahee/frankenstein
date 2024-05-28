@@ -18,3 +18,9 @@ class IDataProvider(Protocol):
         
     def get_time(self) -> datetime:
         ...
+        
+    def step(self) -> None:
+        ...
+        
+    def reset(self, start: str, end: str, freq: str) -> None:
+        ...
