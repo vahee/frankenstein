@@ -23,3 +23,5 @@ bokeh
 ta
 pyarrow
 pandas
+stable-baselines3
+gymnasium
