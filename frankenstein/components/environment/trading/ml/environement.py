@@ -205,6 +205,16 @@ class TradingEnv(gym.Env):
 
     def render(self, mode='human'):
         print(f'Equity: {self._equity}, Position: {self._position}')
-
+    
+    def get_stats(self):
+        return {
+            'equity': self._equity,
+            'position': self._position
+        }
+        
+    def reset_stats(self):
+        self._equity = 10000
+        self._position = 0
+    
     def close(self):
         ...
