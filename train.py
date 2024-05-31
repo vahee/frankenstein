@@ -5,6 +5,8 @@ from frankenstein.components.environment.trading.data_provider import DataProvid
 from frankenstein.lib.trading.utils import load_mt5_bars_csv, load_mt5_ticks_csv
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.evaluation import evaluate_policy
+
 
 def get_data_provider(filename):
     bars = True
@@ -42,6 +44,8 @@ class TrainCallback(BaseCallback):
             self.logger.log("Timestep {}".format(self.num_timesteps))
             self.logger.log(self.training_env.env_method("get_stats"))
             self.logger.dump(self.num_timesteps)
+        if self.num_timesteps >= self.model.learning_starts and self.num_timesteps % 10000 == 0:
+            self.model.save("dqn_policy")
         return True
 
 
@@ -79,21 +83,27 @@ eval_env = TradingEnv(
     14
 )
 
-model = DQN("MlpPolicy", env, learning_rate=1e-4, verbose=1, target_update_interval=1000, create_eval_env=True, gradient_steps=100)
-
-
-tmp_path = "/tmp/sb3_log/"
-
-new_logger = configure(tmp_path, ["stdout", "log", "csv"])
-model.set_logger(new_logger)
-
-model.learn(
-    total_timesteps=100000, 
-    eval_env=eval_env,
-    log_interval=100,
-    n_eval_episodes=1,
-    callback=TrainCallback()
+model = DQN(
+    "MlpPolicy", 
+    env, 
+    learning_rate=1e-4,
+    buffer_size=100000,
+    learning_starts=10000,
+    gradient_steps=1,
+    batch_size=32,
+    verbose=1,
+    target_update_interval=10000,
+    policy_kwargs={"net_arch": [128, 128]}
 )
 
-model.save("dqn_policy")
+if __name__ == "__main__":
+    new_logger = configure(None, ["stdout", "log", "csv"])
+    model.set_logger(new_logger)
 
+    model.learn(
+        total_timesteps=1000000, 
+        log_interval=100,
+        callback=TrainCallback()
+    )
+
+    print(evaluate_policy(model, env, n_eval_episodes=1, return_episode_rewards=True))

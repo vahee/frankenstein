@@ -46,7 +46,8 @@ class TradingEnv(gym.Env):
         self._entry_price = 0
         self._timestep: datetime
         self._last_n_observations = []
-        self._n_rolling_observations = 4
+        self._n_rolling_observations = 6
+        self._last_action = None
         
         self._equity = 10000
         self._prepare(
@@ -65,9 +66,9 @@ class TradingEnv(gym.Env):
         
         self.action_space = spaces.Discrete(3) # Buy, Sell, Hold
         
-        # (4 bars, 6 features - price, initial position, rsi, hband, lband, stochastic)
+        # (4 bars, 9 features - open, low, high, close, initial position, rsi, hband, lband, stochastic)
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(self._n_rolling_observations , 6), dtype=np.float16)
+                                            shape=(self._n_rolling_observations , 9), dtype=np.float16)
         
     def _prepare(self, 
         *,
@@ -127,24 +128,38 @@ class TradingEnv(gym.Env):
     def _observe(self):
         if self._timestep is None:
             return
-        price = self._data_provider.bid('EURUSD')
         rsi = self.rsi_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['rsi']
-        hband = self.bands_bars[:self._timestep + timedelta(microseconds=1)].iloc[-1]['hband']
-        lband = self.bands_bars[:self._timestep + timedelta(microseconds=1)].iloc[-1]['lband']
-        stochastic = self.stochastic_bars[:self._timestep + timedelta(microseconds=1)].iloc[-1]['stoch']
+        hband = self.bands_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['hband']
+        lband = self.bands_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['lband']
+        high = self.stochastic_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['high']
+        low = self.stochastic_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['low']
+        close = self.stochastic_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['close']
+        open = self.stochastic_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['open']
+        stochastic = self.stochastic_bars.loc[:self._timestep + timedelta(microseconds=1)].iloc[-1]['stoch']
         
-        self._last_n_observations.append([price, self._position, rsi, hband, lband, stochastic])
+        self._last_n_observations.append(
+            [
+                open,
+                low,
+                high,
+                close, 
+                self._position, 
+                rsi, 
+                hband, 
+                lband, 
+                stochastic
+            ])
         
-        if len(self._last_n_observations) > 4:
+        if len(self._last_n_observations) > self._n_rolling_observations:
             self._last_n_observations.pop(0)
     
     def _reward(self) -> float:
         if self._timestep is None:
             return 0
         
-        new_position = self._last_n_observations[-1][1]
-        prev_price = self._last_n_observations[-2][0]
-        new_price = self._last_n_observations[-1][0]
+        new_position = self._last_n_observations[-1][4]
+        prev_price = self._last_n_observations[-2][3]
+        new_price = self._last_n_observations[-1][3]
         
         reward = 0
         if new_position == 1:
@@ -159,7 +174,7 @@ class TradingEnv(gym.Env):
     def step(self, action):
         
         # action: 0 - Buy, 1 - Sell, 2 - Hold
-        current_position = self._last_n_observations[-1][1]
+        current_position = self._last_n_observations[-1][4]
         if action == 0:
             if current_position == 0:
                 self._position = 1
@@ -174,6 +189,7 @@ class TradingEnv(gym.Env):
         else:
             self._position = current_position
         
+        self._last_action = action
         self._data_provider.step()
         self._timestep = self._data_provider.get_time()
         
@@ -197,19 +213,20 @@ class TradingEnv(gym.Env):
             self._timestep = self._data_provider.get_time()
             self._observe()
             observation = np.array(self._last_n_observations, dtype=np.float16)
-            if np.all(~np.isnan(observation)) and observation.shape == (4, 6):
+            if np.all(~np.isnan(observation)) and observation.shape[0] == self._n_rolling_observations:
                 break
             if self._timestep is None:
                 break
         return observation
 
     def render(self, mode='human'):
-        print(f'Equity: {self._equity}, Position: {self._position}')
+        print(f'Equity: {self._equity}, Position: {self._position}, Last Action: {self._last_action}')
     
     def get_stats(self):
         return {
             'equity': self._equity,
-            'position': self._position
+            'position': self._position,
+            'last_action': self._last_action
         }
         
     def reset_stats(self):
