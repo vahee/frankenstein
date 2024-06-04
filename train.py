@@ -1,12 +1,20 @@
 from datetime import datetime
-from stable_baselines3.dqn.dqn import DQN
+from stable_baselines3.ppo.ppo import PPO
 from frankenstein.components.environment.trading.ml.environement import TradingEnv
 from frankenstein.components.environment.trading.data_provider import DataProvider
 from frankenstein.lib.trading.utils import load_mt5_bars_csv, load_mt5_ticks_csv
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
+from wandb.integration.sb3 import WandbCallback
+import torch as th
+import numpy as np
 
+th.backends.cudnn.deterministic = True
+th.backends.cudnn.benchmark = False
+
+th.manual_seed(0)
+np.random.seed(0)
 
 def get_data_provider(filename):
     bars = True
@@ -38,62 +46,46 @@ class TrainCallback(BaseCallback):
         super(TrainCallback, self).__init__(verbose)
 
     def _on_step(self) -> bool:
-        if self.num_timesteps == self.model.learning_starts:
+        if self.num_timesteps % 50000 == 0:
             self.training_env.env_method("reset_stats")
-        if self.num_timesteps % 100 == 0:
-            self.logger.log("Timestep {}".format(self.num_timesteps))
-            self.logger.log(self.training_env.env_method("get_stats"))
+        if self.num_timesteps % 2048 == 0:
+            self.logger.record("timesteps", self.num_timesteps)
+            stats = self.training_env.env_method("get_stats")
+            for key, value in stats[0].items():
+                self.logger.record(key, value)
             self.logger.dump(self.num_timesteps)
-        if self.num_timesteps >= self.model.learning_starts and self.num_timesteps % 10000 == 0:
+        if self.num_timesteps % 10000 == 0:
             self.model.save("dqn_policy")
         return True
 
 
-data_provider, start, end = get_data_provider("datasets/NAS100_SB_M1_202401020100_202405172354.csv")
+env_params = [
+    'M5', # frequency
+    20, # n_rolling_observations
+]
+
+
+data_provider, start, end = get_data_provider("datasets/EURUSD_SB_M1_202001020000_202405292358.csv")
 
 env = TradingEnv(
-    data_provider, 
-    datetime.strftime(start, "%Y-%m-%dT%H:%M:%S.0"),
-    datetime.strftime(end, "%Y-%m-%dT%H:%M:%S.0"),
-    'M5', 
-    'M5', 
-    13, 
-    2, 
-    'M5', 
-    9, 
-    'M5', 
-    3, 
-    14
+    *([data_provider, datetime.strftime(start, "%Y-%m-%dT%H:%M:%S.0"), datetime.strftime(end, "%Y-%m-%dT%H:%M:%S.0")] + env_params)
 )
 
-
-eval_data_provider, eval_start, eval_end = get_data_provider("datasets/NAS100_SB_M1_202001020100_202005282246.csv")
+eval_data_provider, eval_start, eval_end = get_data_provider("datasets/EURUSD_SB_M1_201901020000_201905300000.csv")
 eval_env = TradingEnv(
-    eval_data_provider, 
-    datetime.strftime(eval_start, "%Y-%m-%dT%H:%M:%S.0"),
-    datetime.strftime(eval_end, "%Y-%m-%dT%H:%M:%S.0"),
-    'M5', 
-    'M5', 
-    13, 
-    2, 
-    'M5', 
-    9, 
-    'M5', 
-    3, 
-    14
+    *([eval_data_provider, datetime.strftime(eval_start, "%Y-%m-%dT%H:%M:%S.0"), datetime.strftime(eval_end, "%Y-%m-%dT%H:%M:%S.0")] + env_params)
 )
 
-model = DQN(
+policy_kwargs = dict(activation_fn=th.nn.ReLU,
+                     net_arch=dict(pi=[1024, 1024, 1024], vf=[1024, 1024, 1024]))
+
+model = PPO(
     "MlpPolicy", 
     env, 
     learning_rate=1e-4,
-    buffer_size=100000,
-    learning_starts=10000,
-    gradient_steps=1,
-    batch_size=32,
+    batch_size=64,
     verbose=1,
-    target_update_interval=10000,
-    policy_kwargs={"net_arch": [128, 128]}
+    policy_kwargs=policy_kwargs
 )
 
 if __name__ == "__main__":
@@ -101,9 +93,10 @@ if __name__ == "__main__":
     model.set_logger(new_logger)
 
     model.learn(
-        total_timesteps=1000000, 
+        total_timesteps=5000000, 
         log_interval=100,
         callback=TrainCallback()
     )
 
     print(evaluate_policy(model, env, n_eval_episodes=1, return_episode_rewards=True))
+
