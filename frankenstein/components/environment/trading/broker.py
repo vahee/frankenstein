@@ -26,8 +26,8 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
         self._is_on = False
         self._is_live = False
         
-        self._last_ask = None
-        self._last_bid = None
+        self._last_ask = {}
+        self._last_bid = {}
         self._balance = 0
         self._leverage = 0
         self._point = 0
@@ -67,8 +67,8 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
         self._pl = 0
         self._equity = self._balance
         self._total_trade_count = 0
-        self._last_ask = None
-        self._last_bid = None
+        self._last_ask = {}
+        self._last_bid = {}
     
     def set_params(self, balance: float = 10000, leverage: int = 30, point: float = 1, lot_in_units: int = 1) -> None:
         self._balance = float(balance)
@@ -80,21 +80,6 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
         timestamp = self._data_provider.get_time()
         if timestamp is None:
             return 
-        ask = self._data_provider.ask('EURUSD')
-        bid = self._data_provider.bid('EURUSD')
-        
-        ask = ask if ask is not None else self._last_ask
-        bid = bid if bid is not None else self._last_bid
-        
-        self._last_ask = ask
-        self._last_bid = bid
-        
-        if ask is None or bid is None:
-            raise Exception("Ask or bid is None")
-        
-        ask = round(ask, 5)
-        bid = round(bid, 5)
-    
         positions = self._positions.copy()
         
         try:
@@ -102,6 +87,15 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
             for symbol, position in positions.items():
                 if not position['is_open']:
                     continue
+                
+                ask = self._data_provider.ask(symbol)
+                bid = self._data_provider.bid(symbol)
+                
+                if ask is None or bid is None:
+                    continue
+                
+                ask = round(ask, 5)
+                bid = round(bid, 5)
 
                 pl = bid - \
                     position['price'] if position['is_long'] else position['price'] - ask
@@ -124,14 +118,15 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
     async def open(self, *, symbol: str, price: float, volume: float, is_long: bool, take_profit_pips: int, stop_loss_pips: int, comment: str, caller_context: IState) -> ActionResult:
         if not self._is_on:
             return ActionResult(value="Broker is off", success=False)
-        assert self._last_ask is not None and self._last_bid is not None, "Ask or bid is None"
+        ask = self._data_provider.ask(symbol)
+        bid = self._data_provider.bid(symbol)
         self._positions[symbol] = {
-            'price': price,
+            'price': ask if is_long else bid,
             'volume': volume,
             'is_long': is_long,
             'take_profit_pips': take_profit_pips,
             'stop_loss_pips': stop_loss_pips,
-            'pl': self._last_bid - price if is_long else price - self._last_ask,
+            'pl': bid - ask,
             'is_open': True,
             'open_timestamp': self._data_provider.get_time(),
             'open_comment': comment
@@ -160,8 +155,6 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
     async def observe(self, caller_context: IState) -> IState:
         state = State()
         state.set_item('positions', self._positions)
-        state.set_item('ask', self._last_ask)
-        state.set_item('bid', self._last_bid)
         state.set_item('balance', self._balance)
         state.set_item('equity', self._equity)
         state.set_item("pl", self._pl)

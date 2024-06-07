@@ -10,18 +10,8 @@ logger = logging.getLogger(__name__)
 class TradingPolicy(WithActionSpaceMixin, IPolicy):
 
     async def action(self, state: IState) -> Tuple[IAction, Dict[str, Any], Dict[str, Any]]:
-        state_items = state._data
-        action_name = state.get_item('agent.components.RemoteControl.force_action.name')
-        action_args = state.get_item('agent.components.RemoteControl.force_action.args')
-        
-        state.remove_item('agent.components.RemoteControl.force_action.name')
-        state.remove_item('agent.components.RemoteControl.force_action.args')
         
         caller_context = state.slice_by_prefix(SharedStateKeys.AGENT_ACTION_CONTEXT)
-        
-        if action_name:
-            action_args['caller_context'] = caller_context
-            return self.action_space.get_action(action_name), action_args, {}
         
         signal: Signal = state.get_item('environment.components.SignalProvider.signal')
         
@@ -31,16 +21,20 @@ class TradingPolicy(WithActionSpaceMixin, IPolicy):
         tp = state.get_item('environment.components.ConfigProvider.tp')
         sl = state.get_item('environment.components.ConfigProvider.sl')
         lot_size = state.get_item('environment.components.ConfigProvider.lot_size')
-        open_threshold = state.get_item('environment.components.ConfigProvider.open_threshold')
-        close_threshold = state.get_item('environment.components.ConfigProvider.close_threshold')
+        long_open_threshold = state.get_item('environment.components.ConfigProvider.long_open_threshold')
+        long_close_threshold = state.get_item('environment.components.ConfigProvider.long_close_threshold')
+        short_open_threshold = state.get_item('environment.components.ConfigProvider.short_open_threshold')
+        short_close_threshold = state.get_item('environment.components.ConfigProvider.short_close_threshold')
         symbol = state.get_item('environment.components.ConfigProvider.symbol')
         
         try:
             assert tp is not None, "Take profit is not set"
             assert sl is not None, "Stop loss is not set"
             assert lot_size is not None, "Lot size is not set"
-            assert open_threshold is not None, "Open threshold is not set"
-            assert close_threshold is not None, "Close threshold is not set"
+            assert long_open_threshold is not None, "Long open threshold is not set"
+            assert long_close_threshold is not None, "Long close threshold is not set"
+            assert short_open_threshold is not None, "Short open threshold is not set"
+            assert short_close_threshold is not None, "Short close threshold is not set"
             assert symbol is not None, "Symbol is not set"
         except AssertionError:
             return self.action_space.get_action('hold'), {"caller_context": caller_context}, {}
@@ -53,28 +47,25 @@ class TradingPolicy(WithActionSpaceMixin, IPolicy):
             'environment.components.Broker.positions').get(symbol, None)
 
         if existing_positions is not None and existing_positions['is_open']:
-            if signal.direction <= -close_threshold:
-                if existing_positions['is_long']:
+            if existing_positions['is_long']:
+                if signal.direction <= -long_close_threshold:
                     return self.action_space.get_action('close'), {
                         'symbol': symbol,
                         'comment': signal.comment,
                         "caller_context": caller_context
                     }, {}
-            elif signal.direction >= close_threshold:
-                if not existing_positions['is_long']:
+            else:
+                if signal.direction >= short_close_threshold:
                     return self.action_space.get_action('close'), {
                         'symbol': symbol,
                         'comment': signal.comment,
                         "caller_context": caller_context
                     }, {}
         else:
-            if signal.direction >= open_threshold:
-                if existing_positions is not None and existing_positions['is_long'] and existing_positions['is_open']:
-                    return self.action_space.get_action('hold'), {"caller_context": caller_context}, {}
-
+            if signal.direction >= long_open_threshold:
                 return self.action_space.get_action('open'), {
                     'symbol': symbol,
-                    'price': state.get_item('environment.components.Broker.ask'),
+                    'price': 0,
                     'volume': lot_size,
                     'is_long': True,
                     'take_profit_pips': tp_pips,
@@ -82,13 +73,10 @@ class TradingPolicy(WithActionSpaceMixin, IPolicy):
                     'comment': signal.comment,
                     "caller_context": caller_context
                 }, {}
-            elif signal.direction <= -open_threshold:
-                if existing_positions is not None and not existing_positions['is_long'] and existing_positions['is_open']:
-                    return self.action_space.get_action('hold'), {"caller_context": caller_context}, {}
-
+            elif signal.direction <= -short_open_threshold:
                 return self.action_space.get_action('open'), {
                     'symbol': symbol,
-                    'price': state.get_item('environment.components.Broker.bid'),
+                    'price': 0,
                     'volume': lot_size,
                     'is_long': False,
                     'take_profit_pips': tp_pips,

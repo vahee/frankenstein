@@ -21,6 +21,7 @@ class TradingEnv(gym.Env):
         time_end: str,
         freq: str,
         n_rolling_observations: int = 6
+
     ):
         super().__init__()
         
@@ -43,11 +44,9 @@ class TradingEnv(gym.Env):
         self._equity = 10000
         
         self.action_space = spaces.Discrete(4) # Buy, Sell, Hold, Close
-        
         # (self._n_rolling_observations bars, 3 features - price, position, position price)
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(self._n_rolling_observations , 3), dtype=np.float16)
-                
+                                            shape=(self._n_rolling_observations , 3), dtype=np.float16)            
     def _observe(self):
         if self._timestep is None:
             return

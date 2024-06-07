@@ -32,6 +32,8 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         
         self._cache = {}
         self._data = {}
+        self._last_ask = {}
+        self._last_bid = {}
         self._time_freq_str = None
         self._start_time, self._end_time, self._time_freq = None, None, None
         

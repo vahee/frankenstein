@@ -6,6 +6,7 @@ import yaml
 
 from agentopy import IAgentComponent, IEnvironmentComponent, WithActionSpaceMixin, Action, EntityInfo, Agent, Environment, IAgent, IEnvironment, ActionResult, IState, State
 
+from frankenstein.lib.language.gemini_language_models import GeminiAIChatModel
 from frankenstein.lib.language.openai_language_models import OpenAIChatModel
 from frankenstein.lib.language.embedding_models import OpenAIEmbeddingModel, SentenceTransformerEmbeddingModel
 from frankenstein.lib.trading.utils import load_mt5_ticks_csv, load_mt5_bars_csv
@@ -327,7 +328,7 @@ class Management(WithActionSpaceMixin, IAgentComponent):
         """
         Returns the language model based on the configuration
         """
-        assert config.get("implementation") in ["openai"], "Language model is not set or not supported"
+        assert config.get("implementation") in ["openai", "gemini"], "Language model is not set or not supported"
         if config["implementation"] == "openai":
             api_key = config.get("params", {}).get("api_key")
             assert api_key is not None, "OpenAI API key is not set"
@@ -335,6 +336,12 @@ class Management(WithActionSpaceMixin, IAgentComponent):
             assert model_name is not None, "OpenAI model name is not set"
             format_json = config.get("params", {}).get("format_json", False)
             return OpenAIChatModel(api_key, model_name, json=format_json)
+        if config["implementation"] == "gemini":
+            api_key = config.get("params", {}).get("api_key")
+            assert api_key is not None, "Gemini API key is not set"
+            model_name = config.get("params", {}).get("model_name")
+            assert model_name is not None, "Gemini model name is not set"
+            return GeminiAIChatModel(api_key, model_name)
         raise Exception("Language model is not set or not supported")
             
 

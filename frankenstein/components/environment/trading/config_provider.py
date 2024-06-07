@@ -8,8 +8,10 @@ class ConfigProvider(WithActionSpaceMixin, IEnvironmentComponent):
         self._params = {
             'symbol': 'EURUSD',
             'lot_size': 0.1,
-            'open_threshold': 50,
-            'close_threshold': 30,
+            'long_open_threshold': 50,
+            'long_close_threshold': 30,
+            'short_open_threshold': 50,
+            'short_close_threshold': 30,
             'sl': 100,
             'tp': 300
         }
@@ -55,11 +57,19 @@ class ConfigProvider(WithActionSpaceMixin, IEnvironmentComponent):
                         'type': 'number'
                     },
                     {
-                        'name': 'open_threshold', 
+                        'name': 'long_open_threshold', 
                         'type': 'number'
                     },
                     {
-                        'name': 'close_threshold', 
+                        'name': 'long_close_threshold', 
+                        'type': 'number'
+                    },
+                    {
+                        'name': 'short_open_threshold', 
+                        'type': 'number'
+                    },
+                    {
+                        'name': 'short_close_threshold', 
                         'type': 'number'
                     },
                     {
