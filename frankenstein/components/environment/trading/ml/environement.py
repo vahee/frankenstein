@@ -1,10 +1,8 @@
-from typing import Any, Optional, Dict
-from datetime import datetime, timedelta
+from datetime import datetime
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 from frankenstein.lib.trading.protocols import IDataProvider
-from ta import volatility, momentum
 
 class TradingEnv(gym.Env):
     """Trading Environment that follows gym interface."""

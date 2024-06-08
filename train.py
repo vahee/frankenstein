@@ -1,14 +1,13 @@
 from datetime import datetime
+import torch as th
+import numpy as np
 from stable_baselines3.ppo.ppo import PPO
-from frankenstein.components.environment.trading.ml.environement import TradingEnv
-from frankenstein.components.environment.trading.data_provider import DataProvider
-from frankenstein.lib.trading.utils import load_mt5_bars_csv, load_mt5_ticks_csv
 from stable_baselines3.common.logger import configure
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
-from wandb.integration.sb3 import WandbCallback
-import torch as th
-import numpy as np
+from frankenstein.components.environment.trading.ml.environement import TradingEnv
+from frankenstein.components.environment.trading.data_provider import DataProvider
+from frankenstein.lib.trading.utils import load_mt5_bars_csv, load_mt5_ticks_csv
 
 th.backends.cudnn.deterministic = True
 th.backends.cudnn.benchmark = False
@@ -65,7 +64,7 @@ env_params = [
 ]
 
 
-data_provider, start, end = get_data_provider("datasets/EURUSD_SB_M1_202001020000_202405292358.csv")
+data_provider, start, end = get_data_provider("datasets/EURUSD_SB_M1_201901020000_201905300000.csv")
 
 env = TradingEnv(
     *([data_provider, datetime.strftime(start, "%Y-%m-%dT%H:%M:%S.0"), datetime.strftime(end, "%Y-%m-%dT%H:%M:%S.0")] + env_params)
