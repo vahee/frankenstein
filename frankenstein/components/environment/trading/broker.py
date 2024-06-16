@@ -105,7 +105,7 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
                 self._equity = self._balance + \
                     position['volume'] * position['pl'] * self._point * self._lot_in_units
 
-                if position['pl'] > position['take_profit_pips'] or pl < -position['stop_loss_pips']:
+                if position['pl'] > position['take_profit_pips'] or position['pl'] < -position['stop_loss_pips']:
                     state = State()
                     await self.close(symbol=symbol, comment="TP/SL reached", caller_context=state)
         except Exception as e:

@@ -25,3 +25,4 @@ pyarrow
 pandas
 stable-baselines3
 gymnasium
+datatable
