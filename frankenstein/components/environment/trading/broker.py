@@ -100,12 +100,12 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
                 pl = bid - \
                     position['price'] if position['is_long'] else position['price'] - ask
 
-                position['pl'] = pl
+                position['pl'] = pl / self._point
 
                 self._equity = self._balance + \
-                    position['volume'] * position['pl'] * self._lot_in_units
+                    position['volume'] * position['pl'] * self._point * self._lot_in_units
 
-                if pl > position['take_profit_pips'] * self._point or pl < -position['stop_loss_pips'] * self._point:
+                if position['pl'] > position['take_profit_pips'] or pl < -position['stop_loss_pips']:
                     state = State()
                     await self.close(symbol=symbol, comment="TP/SL reached", caller_context=state)
         except Exception as e:
@@ -126,7 +126,7 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
             'is_long': is_long,
             'take_profit_pips': take_profit_pips,
             'stop_loss_pips': stop_loss_pips,
-            'pl': bid - ask,
+            'pl': (bid - ask) / self._point,
             'is_open': True,
             'open_timestamp': self._data_provider.get_time(),
             'open_comment': comment

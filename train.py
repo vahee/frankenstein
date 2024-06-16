@@ -45,8 +45,6 @@ class TrainCallback(BaseCallback):
         super(TrainCallback, self).__init__(verbose)
 
     def _on_step(self) -> bool:
-        if self.num_timesteps % 50000 == 0:
-            self.training_env.env_method("reset_stats")
         if self.num_timesteps % 2048 == 0:
             self.logger.record("timesteps", self.num_timesteps)
             stats = self.training_env.env_method("get_stats")
@@ -60,11 +58,11 @@ class TrainCallback(BaseCallback):
 
 env_params = [
     'M5', # frequency
-    20, # n_rolling_observations
+    10, # n_rolling_observations
 ]
 
 
-data_provider, start, end = get_data_provider("datasets/EURUSD_SB_M1_201901020000_201905300000.csv")
+data_provider, start, end = get_data_provider("datasets/EURUSD_SB_M1_202001020000_202405292358.csv")
 
 env = TradingEnv(
     *([data_provider, datetime.strftime(start, "%Y-%m-%dT%H:%M:%S.0"), datetime.strftime(end, "%Y-%m-%dT%H:%M:%S.0")] + env_params)
@@ -81,7 +79,7 @@ policy_kwargs = dict(activation_fn=th.nn.ReLU,
 model = PPO(
     "MlpPolicy", 
     env, 
-    learning_rate=1e-4,
+    learning_rate=1e-5,
     batch_size=64,
     verbose=1,
     policy_kwargs=policy_kwargs
@@ -92,10 +90,10 @@ if __name__ == "__main__":
     model.set_logger(new_logger)
 
     model.learn(
-        total_timesteps=5000000, 
+        total_timesteps=1000000, 
         log_interval=100,
         callback=TrainCallback()
     )
 
-    print(evaluate_policy(model, env, n_eval_episodes=1, return_episode_rewards=True))
+    print(evaluate_policy(model, eval_env, n_eval_episodes=1, return_episode_rewards=True))
 

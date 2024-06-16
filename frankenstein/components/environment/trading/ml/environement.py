@@ -52,8 +52,7 @@ class TradingEnv(gym.Env):
         self._last_n_observations_abs.append(
             [
                 price, 
-                self._position, 
-                self._entry_price
+                self._position,
             ])
         
         if len(self._last_n_observations_abs) > 1:
@@ -61,7 +60,7 @@ class TradingEnv(gym.Env):
                 [
                     self._last_n_observations_abs[-1][0] - self._last_n_observations_abs[-2][0], 
                     self._position, 
-                    self._entry_price,
+                    (price - self._entry_price) if self._entry_price != 0 else 0
                 ])
         self._last_n_observations_abs = self._last_n_observations_abs[-self._n_rolling_observations:]
         self._last_n_observations = self._last_n_observations[-self._n_rolling_observations:]
@@ -73,23 +72,22 @@ class TradingEnv(gym.Env):
         new_position = new_observation[1]
         old_position = old_observation[1]
         
-        reward = -5
-        if action == 2:
-            if old_position in [1, -1]:
-                reward = old_position * (new_observation[2] - old_observation[2])
+        reward = 0
+        if old_position in [1, -1]:
+            if action == 2:
+                reward = old_position * old_observation[2] + old_position * new_observation[0]
                 self._equity += reward
-                if reward > 0:
-                    reward = 20 + 5 * reward
-                else:
-                    reward = -10 + 5 * reward
+            elif action == 3:
+                reward -= 1
+            else: reward -= 10
+        else:
+            if action == 2:
+                reward -= 10
+            elif action == 3:
+                reward -= 1
             else:
-                reward = -10
-        elif action in [0, 1]:
-            if old_position != 0:
-                reward = -10
-            else:
-                reward = 5
-        return reward
+                reward += 1
+        return 2/(1 + np.exp(-reward)) - 1
         
     def step(self, action):
         
@@ -98,12 +96,14 @@ class TradingEnv(gym.Env):
         if action == 0: # buy
             if current_position == 0:
                 self._position = 1
-                self._entry_price = self._last_n_observations[-1][0]
+                self._entry_price = self._last_n_observations_abs[-1][0]
+                
             
         elif action == 1: # sell
             if current_position == 0:
                 self._position = -1
-                self._entry_price = self._last_n_observations[-1][0]
+                self._entry_price = self._last_n_observations_abs[-1][0]
+                
         elif action == 2: # close
             self._position = 0
             self._entry_price = 0
@@ -149,7 +149,9 @@ class TradingEnv(gym.Env):
         return {
             'equity': self._equity,
             'position': self._position,
-            'last_action': self._last_action
+            'last_action': self._last_action,
+            'last_price': self._last_n_observations_abs[-1][0],
+            'last_to_last_price': self._last_n_observations_abs[-2][0],
         }
         
     def reset_stats(self):
