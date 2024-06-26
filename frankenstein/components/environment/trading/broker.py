@@ -1,5 +1,6 @@
+
+from typing import Any, Dict
 import time
-import asyncio as aio
 from agentopy import IEnvironmentComponent, IState, WithActionSpaceMixin, Action, EntityInfo, State, ActionResult
 from frankenstein.lib.trading.protocols import IDataProvider
 
@@ -9,6 +10,7 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
         super().__init__()
         self.start_time = time.time()
         
+        self._status: Dict[str, Any] = dict()
         self._data_provider = data_provider
 
         self.action_space.register_actions(
@@ -154,6 +156,7 @@ class Broker(WithActionSpaceMixin, IEnvironmentComponent):
         
     async def observe(self, caller_context: IState) -> IState:
         state = State()
+        state.set_item('status', self._status)
         state.set_item('positions', self._positions)
         state.set_item('balance', self._balance)
         state.set_item('equity', self._equity)

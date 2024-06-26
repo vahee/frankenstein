@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from agentopy import IEnvironmentComponent, IState, WithActionSpaceMixin, State, EntityInfo, ActionResult, Action
 
 class ConfigProvider(WithActionSpaceMixin, IEnvironmentComponent):
@@ -15,6 +16,8 @@ class ConfigProvider(WithActionSpaceMixin, IEnvironmentComponent):
             'sl': 100,
             'tp': 300
         }
+        
+        self._status: Dict[str, Any] = dict()
         
         self.action_space.register_actions([
             Action('config_provider_set_params', "Sets the parameters", self.set_params, self.info()),
@@ -41,6 +44,7 @@ class ConfigProvider(WithActionSpaceMixin, IEnvironmentComponent):
         for key, value in self._params.items():
             state.set_item(key, value)
         
+        state.set_item('status', self._status)
         return state
     
     def info(self) -> EntityInfo:

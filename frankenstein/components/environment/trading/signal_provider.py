@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from ta import volatility, momentum
 
 from agentopy import IEnvironmentComponent, IState, WithActionSpaceMixin, State, EntityInfo, ActionResult, Action
@@ -11,6 +12,7 @@ class SignalProvider(WithActionSpaceMixin, IEnvironmentComponent):
         super().__init__()
         self._data_provider = data_provider
         
+        self._status: Dict[str, Any] = dict()
         self._prepared = False
         self._params = {}
         
@@ -211,6 +213,7 @@ class SignalProvider(WithActionSpaceMixin, IEnvironmentComponent):
     
     async def observe(self, caller_context: IState) -> IState:
         state = State()
+        state.set_item('status', self._status)
         state.set_item('signal', self._last_signal)
         state.set_item('symbol', self.symbol)
         state.set_item('params', self._params)

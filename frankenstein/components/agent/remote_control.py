@@ -97,7 +97,6 @@ class RemoteControl(WithActionSpaceMixin, IAgentComponent):
                         branch[nested_keys[i]] = {}
                     branch = branch[nested_keys[i]]
 
-
                 branch[nested_keys[-1]] = value
                 
         except Exception as e:
@@ -114,7 +113,10 @@ class RemoteControl(WithActionSpaceMixin, IAgentComponent):
         """Forces the agent to perform an action"""
         name = data.get("name")
         args = data.get("args")
-
+        
+        if self._agent_state_subscription is not None:
+            self._agent_state_subscription["ts"] = time.time()
+        
         if name is not None:
             agent.state.set_item(
                 f"agent.components.{self.info().name}.force_action.name", name)

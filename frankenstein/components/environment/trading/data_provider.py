@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, UTC
-from typing import Tuple, Optional, Literal
+from typing import Tuple, Optional, Literal, Dict, Any
 from bisect import bisect_left
 import pandas as pd
 
@@ -19,6 +19,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
         
         self._time: datetime = None
         self._live: bool = False
+        self._status: Dict[str, Any] = dict()
         
         if time_range is not None:
             start, end = time_range
@@ -215,6 +216,7 @@ class DataProvider(WithActionSpaceMixin, IDataProvider, IEnvironmentComponent):
     async def observe(self, caller_context: IState) -> IState:
         state = State()
         
+        state.set_item('status', self._status)
         state.set_item('time', self._time.strftime("%Y-%m-%dT%H:%M:%S.000") if self._time is not None else None)
         state.set_item('live', self._live)
         state.set_item('is_on', (not self._live and self._time is not None) or self._live)
